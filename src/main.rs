@@ -20,6 +20,6 @@ async fn main() {
 
     log::info!("{} (v{}) started", config.app_name, config.app_version);
     container.solar_service.run().await;
-    log::info!("{} gracefull shutdown", config.app_name);
+    log::info!("{} stopped", config.app_name);
     std::process::exit(0);
 }
