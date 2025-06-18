@@ -1,4 +1,4 @@
-//! Dependency injection container for Grust.
+//! Dependency injection container for solarlog-hass-bridge.
 
 use std::sync::Arc;
 

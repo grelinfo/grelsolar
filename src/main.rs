@@ -1,6 +1,6 @@
-//! Grust Application
+//! solarlog-hass-bridge Application
 
-use grust::{
+use solarlog-hass-bridge::{
     config::{Config, configure_logger},
     container::Container,
 };

@@ -803,27 +803,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "grust"
-version = "0.0.0"
-dependencies = [
- "async-lock",
- "chrono",
- "dotenvy",
- "env_logger",
- "failsafe",
- "httpmock",
- "log",
- "reqwest",
- "serde",
- "serde_json",
- "strum",
- "strum_macros",
- "thiserror 2.0.12",
- "tokio",
- "tokio-retry",
-]
-
-[[package]]
 name = "h2"
 version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2068,6 +2047,27 @@ checksum = "e22376abed350d73dd1cd119b57ffccad95b4e585a7cda43e286245ce23c0678"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "solarlog-hass-bridge"
+version = "0.0.0"
+dependencies = [
+ "async-lock",
+ "chrono",
+ "dotenvy",
+ "env_logger",
+ "failsafe",
+ "httpmock",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "strum",
+ "strum_macros",
+ "thiserror 2.0.12",
+ "tokio",
+ "tokio-retry",
 ]
 
 [[package]]
