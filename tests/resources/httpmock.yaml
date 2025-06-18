@@ -1,0 +1,15 @@
+when:
+  method: POST
+  path_matches:
+    - ^/api/states/sensor\..*$
+  header:
+    - name: Content-Type
+      value: application/json
+  header_exists:
+    - Authorization
+then:
+  status: 200
+  header:
+    - name: content-type
+      value: application/json
+  body: ""

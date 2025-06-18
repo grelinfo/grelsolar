@@ -1,0 +1,132 @@
+//! Home Assistant HTTP client.
+//! This is the lower level client for Home Assistant devices.
+use failsafe::{
+    backoff::{self, Constant},
+    failure_policy::{self, ConsecutiveFailures},
+    futures::CircuitBreaker,
+};
+use reqwest::{Client, StatusCode, Url};
+use serde_json::{self};
+use std::time::Duration;
+use tokio_retry::RetryIf;
+use tokio_retry::strategy::{ExponentialBackoff, jitter};
+
+use crate::home_assistant::schemas::StateCreateOrUpdate;
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Request error: {0}")]
+    RequestError(#[from] reqwest::Error),
+    #[error("Request rejected by the circuit breaker")]
+    RequestRejected,
+    #[error("JSON serialization error: {0}")]
+    JsonSerializationError(#[from] serde_json::Error),
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
+
+pub struct HttpClient {
+    client: Client,
+    token: String,
+    base_url: Url,
+    circuit_breaker: failsafe::StateMachine<ConsecutiveFailures<Constant>, ()>,
+}
+
+impl HttpClient {
+    /// Creates a new instance of `HttpClient`.
+    pub fn new(url: &Url, token: &str) -> Self {
+        let client = Client::builder()
+            .timeout(Duration::from_millis(500)) // 0.5 seconds timeout
+            .build()
+            .expect("Failed to create HTTP client");
+        HttpClient {
+            client: client,
+            token: token.to_string(),
+            base_url: url.clone(),
+            circuit_breaker: circuit_breaker(),
+        }
+    }
+
+    /// Creates or updates a state in Home Assistant.
+    pub async fn set_state(&self, entity_id: &str, state: &StateCreateOrUpdate) -> Result<()> {
+        let body = serde_json::to_string(state)?;
+        RetryIf::spawn(
+            retry_strategy(),
+            || async {
+                self.circuit_breaker
+                    .call_with(is_recorded_error, self.request_post_state(entity_id, &body))
+                    .await
+                    .map_err(|err| match err {
+                        failsafe::Error::Rejected => Error::RequestRejected,
+                        failsafe::Error::Inner(e) => e,
+                    })
+            },
+            is_retryable_error,
+        )
+        .await?;
+        Ok(())
+    }
+
+    /// Private methods --------------------------------------------------------
+
+    /// Internal method to post state to Home Assistant.
+    pub async fn request_post_state(&self, entity_id: &str, body: &str) -> Result<()> {
+        log::debug!(
+            "Sending post state request for entity '{}': {}",
+            entity_id,
+            body
+        );
+        let url = self
+            .base_url
+            .join(&format!("api/states/{entity_id}"))
+            .expect("cannot post state URL");
+        self.client
+            .post(url)
+            .header("Authorization", format!("Bearer {}", self.token))
+            .header("Content-Type", "application/json")
+            .body(body.to_string())
+            .send()
+            .await?
+            .error_for_status()?;
+        Ok(())
+    }
+}
+
+/// Creates a circuit breaker with a failure policy that allows up to 3 consecutive failures and will retry after 60 seconds.
+fn circuit_breaker() -> failsafe::StateMachine<ConsecutiveFailures<Constant>, ()> {
+    let backoff = backoff::constant(Duration::from_secs(60));
+    let policy = failure_policy::consecutive_failures(3, backoff);
+    // Creates a circuit breaker with given policy.
+    failsafe::Config::new().failure_policy(policy).build()
+}
+
+/// Create a retry strategy with exponential backoff starting at 10 milliseconds, with jitter, and a maximum of 3 retries.
+fn retry_strategy() -> impl Iterator<Item = Duration> {
+    ExponentialBackoff::from_millis(10).map(jitter).take(3)
+}
+
+/// Check if the error is a HTTP 4xx client error.
+fn is_client_error(error: &reqwest::Error) -> bool {
+    error
+        .status()
+        .map(|status_code| StatusCode::is_client_error(&status_code))
+        .unwrap_or(false)
+}
+
+// Predicate function for the retry strategy to determine if an error is retryable.
+fn is_retryable_error(error: &Error) -> bool {
+    match error {
+        Error::RequestError(err) => is_client_error(err),
+        Error::RequestRejected => false, // Don't retry on circuit breaker rejection
+        Error::JsonSerializationError(_) => false, // Don't retry on serialization errors
+    }
+}
+
+/// Predicate function for the circuit breaker to record errors that are not client errors.
+fn is_recorded_error(error: &Error) -> bool {
+    match error {
+        Error::RequestError(err) => !is_client_error(err), // Don't record client errors
+        Error::RequestRejected => false, // Don't record circuit breaker rejections
+        Error::JsonSerializationError(_) => false, // Don't record serialization errors
+    }
+}

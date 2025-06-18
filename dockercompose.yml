@@ -1,0 +1,11 @@
+services:
+  httpmock:
+    image: alexliesenfeld/httpmock
+    platform: linux/amd64
+    environment:
+      - HTTPMOCK_MOCK_FILES_DIR=/mocks
+      - HTTPMOCK_PORT=8001
+    volumes:
+      - ./tests/resources/httpmock.yaml:/mocks/httpmock.yaml:ro
+    ports:
+      - "8001:8001"
