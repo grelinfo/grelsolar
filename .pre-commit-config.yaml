@@ -3,17 +3,53 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
-    - id: check-yaml
-    - id: check-json
-    - id: check-toml
-    - id: check-merge-conflict
-    - id: check-case-conflict
-    - id: detect-private-key
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: detect-private-key
   - repo: https://github.com/crate-ci/typos
     rev: v1.32.0
     hooks:
-    - id: typos
+      - id: typos
   - repo: https://github.com/crate-ci/committed
     rev: v1.1.7
     hooks:
-    - id: committed
+      - id: committed
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: Check formatting
+        entry: cargo fmt
+        args: [--all, --, --check]
+        language: system
+        types: [rust]
+        pass_filenames: false
+      - id: cargo-clippy
+        name: Lint with clippy
+        entry: cargo clippy
+        args: [--all, --, --deny, warnings]
+        language: system
+        types: [rust]
+        pass_filenames: false
+      - id: cargo-check
+        name: Check package
+        entry: cargo check
+        language: system
+        pass_filenames: false
+      - id: cargo-build
+        name: Build
+        entry: cargo build
+        language: system
+        pass_filenames: false
+      - id: cargo-test
+        name: Run tests
+        entry: cargo test
+        language: system
+        pass_filenames: false
+
+ci:
+  autofix_commit_msg: 🎨 [pre-commit.ci] Auto format from pre-commit.com hooks
+  autoupdate_commit_msg: ⬆ [pre-commit.ci] pre-commit autoupdate
+  skip: [cargo-fmt, cargo-clippy, cargo-check, cargo-build, cargo-test]
