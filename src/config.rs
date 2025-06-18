@@ -43,6 +43,13 @@ impl Config {
     }
 }
 
+pub fn configure_logger() {
+    let env = env_logger::Env::default()
+        .filter_or("APP_LOG", "info")
+        .write_style_or("APP_LOG_STYLE", "always");
+    env_logger::init_from_env(env);
+}
+
 fn string_from_env_with_default(
     name: &str,
     default: &str,
