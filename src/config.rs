@@ -1,9 +1,9 @@
 //! Application configuration loaded from environment variables.
 
-use tokio::time::Duration;
 use reqwest::Url;
 use std::env;
 use thiserror::Error;
+use tokio::time::Duration;
 
 /// Holds all configuration for the application.
 #[derive(Debug, Clone)]
@@ -57,12 +57,8 @@ pub fn configure_logger() {
     env_logger::init_from_env(env);
 }
 
-fn string_from_env_with_default(
-    name: &str,
-    default: &str,
-) -> String {
-    env::var(name)
-        .unwrap_or_else(|_| default.to_string())
+fn string_from_env_with_default(name: &str, default: &str) -> String {
+    env::var(name).unwrap_or_else(|_| default.to_string())
 }
 
 fn string_from_env(name: &str) -> Result<String, ConfigError> {
@@ -76,13 +72,13 @@ fn string_from_env(name: &str) -> Result<String, ConfigError> {
 
 fn url_from_env(name: &str) -> Result<Url, ConfigError> {
     let value = string_from_env(name)?;
-    Url::parse(&value)
-        .map_err(|_| ConfigError::UrlParseError(name.to_string()))
+    Url::parse(&value).map_err(|_| ConfigError::UrlParseError(name.to_string()))
 }
 
 fn duration_from_env_with_default(name: &str, default: i64) -> Result<Duration, ConfigError> {
-    env::var(name).unwrap_or_else(|_| default.to_string())
+    env::var(name)
+        .unwrap_or_else(|_| default.to_string())
         .parse::<u64>()
-        .map(|secs| Duration::from_secs(secs))
+        .map(Duration::from_secs)
         .map_err(|_| ConfigError::DurationParseError(name.to_string()))
 }

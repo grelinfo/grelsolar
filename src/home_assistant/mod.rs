@@ -5,4 +5,3 @@ pub use client::Client;
 
 mod http_client;
 mod schemas;
-

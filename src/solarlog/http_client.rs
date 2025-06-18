@@ -21,8 +21,8 @@ pub enum Error {
     QueryImpossible,
     #[error("Access denied")]
     AccessDenied,
-    #[error("Request error: {0}")]
-    RequestError(#[from] reqwest::Error),
+    #[error("Request failed: {0}")]
+    RequestFailed(#[from] reqwest::Error),
     #[error("Request rejected by the circuit breaker")]
     RequestRejected,
 }
@@ -45,7 +45,7 @@ impl HttpClient {
             .build()
             .expect("Failed to create HTTP client");
         HttpClient {
-            client: client,
+            client,
             password: password.to_string(),
             base_url: url.clone(),
             token: RwLock::new(None),
@@ -104,8 +104,6 @@ impl HttpClient {
         .await?;
         Ok(text)
     }
-
-    /// Private methods --------------------------------------------------------
 
     // Execute a login operation.
     /// If `force` is true, it will always refresh the token even if it is already set.
@@ -178,7 +176,7 @@ impl HttpClient {
             .cookies()
             .find(|c| c.name() == "SolarLog")
             .map(|c| c.value().to_string());
-        if let Some(_) = token {
+        if token.is_some() {
             log::debug!("Login successful, token received");
         } else {
             log::debug!("Login failed, no token received");
@@ -202,7 +200,7 @@ impl HttpClient {
             .send()
             .await?
             .error_for_status()
-            .map_err(Error::RequestError)?;
+            .map_err(Error::RequestFailed)?;
         let text = response.text().await?;
         if text.contains("QUERY IMPOSSIBLE") {
             return Err(Error::QueryImpossible);
@@ -239,7 +237,7 @@ fn is_client_error(error: &reqwest::Error) -> bool {
 // Predicate function for the retry strategy to determine if an error is retryable.
 fn is_retryable_error(error: &Error) -> bool {
     match error {
-        Error::RequestError(err) => is_client_error(err),
+        Error::RequestFailed(err) => is_client_error(err),
         Error::WrongPassword => false,
         Error::QueryImpossible => false,
         Error::AccessDenied => true, // Retry if token expires or is invalid
@@ -251,10 +249,10 @@ fn is_retryable_error(error: &Error) -> bool {
 /// Predicate function for the circuit breaker to record errors that are not client errors.
 fn is_recorded_error(error: &Error) -> bool {
     match error {
-        Error::RequestError(err) => !is_client_error(err), // Don't record client errors
-        Error::WrongPassword => false,                     // Don't record wrong password errors
-        Error::QueryImpossible => false,                   // Don't record query impossible errors
-        Error::AccessDenied => false,                      // Don't record access denied errors
+        Error::RequestFailed(err) => !is_client_error(err), // Don't record client errors
+        Error::WrongPassword => false,                      // Don't record wrong password errors
+        Error::QueryImpossible => false,                    // Don't record query impossible errors
+        Error::AccessDenied => false,                       // Don't record access denied errors
         Error::RequestRejected => false, // Don't record circuit breaker rejections
         Error::LoginExpired => false,    // Don't record login expired errors
     }

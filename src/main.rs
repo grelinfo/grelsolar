@@ -1,7 +1,9 @@
 //! Grust Application
 
-use grust::{config::{configure_logger, Config}, container::Container};
-
+use grust::{
+    config::{Config, configure_logger},
+    container::Container,
+};
 
 #[tokio::main]
 async fn main() {

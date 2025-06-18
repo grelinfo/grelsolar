@@ -22,10 +22,10 @@ pub struct Client {
     http: HttpClient,
 }
 
-const CURRENT_POWER: &'static str = "782";
-const DAILY_ENERGY: &'static str = "777";
-const MONTHLY_ENERGY: &'static str = "779";
-const STATUS: &'static str = "608";
+static CURRENT_POWER: &str = "782";
+static DAILY_ENERGY: &str = "777";
+static MONTHLY_ENERGY: &str = "779";
+static STATUS: &str = "608";
 
 /// Solar-Log inverter status.
 #[derive(Debug, PartialEq, EnumString, Display)]
@@ -156,16 +156,16 @@ impl Client {
     /// Get the energy produced or consumed during the current day in watt-hours (Wh).
     pub async fn get_energy_today(&self) -> Result<Option<i64>> {
         let today = chrono::Local::now().format("%d.%m.%y").to_string();
-        self.get_inverter_date_value_as_i64(DAILY_ENERGY, 0, &today).await
+        self.get_inverter_date_value_as_i64(DAILY_ENERGY, 0, &today)
+            .await
     }
 
     /// Get the energy produced or consumed during the current month in watt-hours (Wh).
     pub async fn get_energy_month(&self) -> Result<Option<i64>> {
         let first_day_of_this_month = chrono::Local::now().format("01.%m.%y").to_string();
-        self.get_inverter_date_value_as_i64(MONTHLY_ENERGY, 0, &first_day_of_this_month).await
+        self.get_inverter_date_value_as_i64(MONTHLY_ENERGY, 0, &first_day_of_this_month)
+            .await
     }
-
-    /// Private methods --------------------------------------------------------
 
     /// Get the SolarLog device for a specific key and inverter ID, returning the value as a string.
     async fn get_inverter_value_as_str(
@@ -177,7 +177,7 @@ impl Client {
         let json_str = self.http.query(&query.to_string()).await?;
         let value = serde_json::from_str::<serde_json::Value>(&json_str)?
             .get(key)
-            .and_then(|v| v.get(&inverter_id.to_string()))
+            .and_then(|v| v.get(inverter_id.to_string()))
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
         Ok(value)
@@ -194,13 +194,13 @@ impl Client {
         let json_str = self.http.query(&query.to_string()).await?;
         let value = serde_json::from_str::<serde_json::Value>(&json_str)?
             .get(key)
-            .and_then(|v| v.get(&inverter_id.to_string()))
+            .and_then(|v| v.get(inverter_id.to_string()))
             .and_then(|v| v.as_array())
             .and_then(|arr| {
                 arr.iter().find_map(|entry| {
                     match (
                         entry.get(0)?.as_str(),
-                        entry.get(1)?.as_array()?.get(0)?.as_i64(),
+                        entry.get(1)?.as_array()?.first()?.as_i64(),
                     ) {
                         (Some(date), Some(val)) if date == date_str => Some(val),
                         _ => None,
@@ -210,5 +210,3 @@ impl Client {
         Ok(value)
     }
 }
-
-

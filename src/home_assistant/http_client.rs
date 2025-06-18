@@ -15,12 +15,12 @@ use crate::home_assistant::schemas::StateCreateOrUpdate;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Request error: {0}")]
-    RequestError(#[from] reqwest::Error),
+    #[error("Request failed: {0}")]
+    RequestFailed(#[from] reqwest::Error),
     #[error("Request rejected by the circuit breaker")]
     RequestRejected,
-    #[error("JSON serialization error: {0}")]
-    JsonSerializationError(#[from] serde_json::Error),
+    #[error("JSON serialization failed: {0}")]
+    JsonSerializationFailed(#[from] serde_json::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -40,7 +40,7 @@ impl HttpClient {
             .build()
             .expect("Failed to create HTTP client");
         HttpClient {
-            client: client,
+            client,
             token: token.to_string(),
             base_url: url.clone(),
             circuit_breaker: circuit_breaker(),
@@ -66,8 +66,6 @@ impl HttpClient {
         .await?;
         Ok(())
     }
-
-    /// Private methods --------------------------------------------------------
 
     /// Internal method to post state to Home Assistant.
     pub async fn request_post_state(&self, entity_id: &str, body: &str) -> Result<()> {
@@ -116,17 +114,17 @@ fn is_client_error(error: &reqwest::Error) -> bool {
 // Predicate function for the retry strategy to determine if an error is retryable.
 fn is_retryable_error(error: &Error) -> bool {
     match error {
-        Error::RequestError(err) => is_client_error(err),
+        Error::RequestFailed(err) => is_client_error(err),
         Error::RequestRejected => false, // Don't retry on circuit breaker rejection
-        Error::JsonSerializationError(_) => false, // Don't retry on serialization errors
+        Error::JsonSerializationFailed(_) => false, // Don't retry on serialization errors
     }
 }
 
 /// Predicate function for the circuit breaker to record errors that are not client errors.
 fn is_recorded_error(error: &Error) -> bool {
     match error {
-        Error::RequestError(err) => !is_client_error(err), // Don't record client errors
+        Error::RequestFailed(err) => !is_client_error(err), // Don't record client errors
         Error::RequestRejected => false, // Don't record circuit breaker rejections
-        Error::JsonSerializationError(_) => false, // Don't record serialization errors
+        Error::JsonSerializationFailed(_) => false, // Don't record serialization errors
     }
 }

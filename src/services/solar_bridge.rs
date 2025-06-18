@@ -1,8 +1,8 @@
 //! Solar Bridge Background Service.
 //! This service bridges SolarLog and Home Assistant, enabling automatic synchronization of solar production data between the two systems.
 
-use tokio::time::{interval, Duration};
 use std::sync::Arc;
+use tokio::time::{Duration, interval};
 
 use crate::{home_assistant, solarlog};
 
@@ -88,7 +88,11 @@ impl SolarBridgeBackgroundService {
             match self.solarlog.get_energy_today().await {
                 Ok(Some(energy_today)) => {
                     if last_energy_today != Some(energy_today) {
-                        if let Err(e) = self.home_assistant.set_solar_energy_today(energy_today).await {
+                        if let Err(e) = self
+                            .home_assistant
+                            .set_solar_energy_today(energy_today)
+                            .await
+                        {
                             log::error!("Failed to update energy today in Home Assistant: {e}");
                         }
                         last_energy_today = Some(energy_today);

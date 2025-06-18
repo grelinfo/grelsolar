@@ -2,9 +2,7 @@
 
 use std::sync::Arc;
 
-use crate::{config::Config, home_assistant,services, solarlog};
-
-
+use crate::{config::Config, home_assistant, services, solarlog};
 
 pub struct Container {
     pub solarlog: Arc<solarlog::Client>,
@@ -29,7 +27,7 @@ impl Container {
                 Arc::clone(&home_assistant),
                 config.solar_power_period,
                 config.solar_energy_period,
-                config.solar_status_period
+                config.solar_status_period,
             )
         });
         Self {
