@@ -6,9 +6,9 @@ RUN cargo build --release
 
 FROM debian:bullseye-slim
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN useradd -m solarlog-hass-bridge
+RUN useradd -m grelsolar
 WORKDIR /app
-COPY --from=builder /app/target/release/solarlog-hass-bridge /app/solarlog-hass-bridge
-RUN chown solarlog-hass-bridge:solarlog-hass-bridge /app/solarlog-hass-bridge && chmod +x /app/solarlog-hass-bridge
-USER solarlog-hass-bridge
-CMD ["./solarlog-hass-bridge"]
+COPY --from=builder /app/target/release/grelsolar /app/grelsolar
+RUN chown grelsolar:grelsolar /app/grelsolar && chmod +x /app/grelsolar
+USER grelsolar
+CMD ["./grelsolar"]

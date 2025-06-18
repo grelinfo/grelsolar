@@ -1,5 +1,5 @@
 [package]
-name = "solarlog-hass-bridge"
+name = "grelsolar"
 version = "0.0.0"
 edition = "2024"
 

@@ -1,4 +1,4 @@
-//! Dependency injection container for solarlog-hass-bridge.
+//! Dependency injection container for grelsolar.
 
 use std::sync::Arc;
 

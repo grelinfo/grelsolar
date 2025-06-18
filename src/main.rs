@@ -1,6 +1,6 @@
-//! solarlog-hass-bridge Application
+//! grelsolar Application
 
-use solarlog-hass-bridge::{
+use grelsolar::{
     config::{Config, configure_logger},
     container::Container,
 };
