@@ -67,7 +67,7 @@ impl HttpClient {
             retry_strategy(),
             || async {
                 self.circuit_breaker
-                    .call_with(is_recorded_error, self.do_login(true))
+                    .call_with(is_recorded_error, self.do_login(force))
                     .await
                     .map_err(|err| match err {
                         failsafe::Error::Inner(e) => e,
