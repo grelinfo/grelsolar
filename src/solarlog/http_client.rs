@@ -13,6 +13,8 @@ use tokio_retry::strategy::{ExponentialBackoff, jitter};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("Login expired during operation")]
+    LoginExpired,
     #[error("Wrong password")]
     WrongPassword,
     #[error("Query impossible")]
@@ -51,13 +53,21 @@ impl HttpClient {
         }
     }
 
-    /// Login to SolarLog device
-    pub async fn login(&self) -> Result<()> {
+    /// Check if the client is logged in.
+    /// Returns `true` if logged in, `false` otherwise.
+    pub async fn is_logged_in(&self) -> bool {
+        let token_read = self.token.read().await;
+        token_read.is_some()
+    }
+
+    /// Login to SolarLog device.
+    /// If `force` is true, it will always login even if already logged in.
+    pub async fn login(&self, force: bool) -> Result<()> {
         RetryIf::spawn(
             retry_strategy(),
             || async {
                 self.circuit_breaker
-                    .call_with(is_recorded_error, self.refresh_token(true))
+                    .call_with(is_recorded_error, self.do_login(true))
                     .await
                     .map_err(|err| match err {
                         failsafe::Error::Inner(e) => e,
@@ -70,7 +80,7 @@ impl HttpClient {
         Ok(())
     }
 
-    /// Logout from SolarLog device
+    /// Logout from SolarLog device.
     pub async fn logout(&self) {
         let mut token_lock = self.token.write().await;
         *token_lock = None;
@@ -81,8 +91,10 @@ impl HttpClient {
         let text = RetryIf::spawn(
             retry_strategy(),
             || async {
+                self.login(false).await?;
+                
                 self.circuit_breaker
-                    .call_with(is_recorded_error, self.request_getjp(query))
+                    .call_with(is_recorded_error, self.do_query(query))
                     .await
                     .map_err(|err| match err {
                         failsafe::Error::Inner(e) => e,
@@ -97,39 +109,67 @@ impl HttpClient {
 
     /// Private methods --------------------------------------------------------
 
-    // Refresh token and return it if successful
+    // Execute a login operation.
     /// If `force` is true, it will always refresh the token even if it is already set.
-    async fn refresh_token(&self, force: bool) -> Result<String> {
-        let mut token_write = self.token.write().await;
-        if token_write.is_some() && !force {
-            return Ok(token_write.as_ref().unwrap().clone());
+    async fn do_login(&self, force: bool) -> Result<()> {
+        if !force && self.is_logged_in().await {
+            return Ok(());
         }
-        let token = self.request_login().await?;
-        *token_write = token.clone();
-        token.ok_or(Error::WrongPassword)
+        self.refresh_token(force).await?;
+        Ok(())
     }
 
-    /// Get token if it exists, otherwise refresh it.
-    async fn get_token(&self) -> Result<String> {
-        if let Some(token) = self.token.read().await.as_ref() {
-            return Ok(token.clone());
+    /// Execute a query operation.
+    async fn do_query(&self, query: &str) -> Result<String> {
+        self.do_login(false).await?;
+        let token_read = self.token.read().await;
+        let token = match *token_read {
+            Some(ref token) => token,
+            None => return Err(Error::LoginExpired),
+        };
+        let result = self.request_getjp(token, query).await;
+        if let Err(Error::AccessDenied) = result {
+            // Clone and release the read lock before acquiring the write lock
+            let token = token.clone();
+            drop(token_read); // Release read lock before acquiring write lock
+            self.clear_token(&token).await;
+            return Err(Error::AccessDenied);
         }
-        self.refresh_token(false).await
+        result
+    }
+
+    /// Refresh the login token if necessary.
+    /// If `force` is true, it will always refresh the token even if it is already set.
+    async fn refresh_token(&self, force: bool) -> Result<()> {
+        let mut token_write = self.token.write().await;
+        if token_write.is_some() && !force {
+            return Ok(());
+        }
+        let token = self.request_login().await?;
+        let result = match token {
+            Some(_) => Ok(()),
+            None => Err(Error::WrongPassword),
+        };
+        *token_write = token;
+        result
     }
 
     /// Clear the token if matching the provided token.
+    /// Avoid clearing the wrong token when switching from read to write lock.
     async fn clear_token(&self, token: &str) {
         let mut token_write = self.token.write().await;
         if let Some(ref current_token) = *token_write {
+            log::debug!("Clearing token");
             if current_token == token {
                 *token_write = None;
             }
         }
     }
 
-    /// Internal method to request a login and retrieve the session token.
+    /// Perform a login request to the SolarLog device.
+    /// Returns the token if successful, or `None` if login failed.
     async fn request_login(&self) -> Result<Option<String>> {
-        log::debug!("Sending login request");
+        log::debug!("Send login request");
         let url = self
             .base_url
             .join("/login")
@@ -141,44 +181,35 @@ impl HttpClient {
             .find(|c| c.name() == "SolarLog")
             .map(|c| c.value().to_string());
         if let Some(_) = token {
-            log::debug!("Login successful");
+            log::debug!("Login successful, token received");
         } else {
-            log::debug!("Login failed: no token received");
+            log::debug!("Login failed, no token received");
         }
         Ok(token)
     }
 
-    /// Internal method to perform the actual query.
-    async fn request_getjp(&self, query: &str) -> Result<String> {
-        log::debug!("Sending query request: {}", query);
-        let token = self.get_token().await?;
-        let url = self
-            .base_url
-            .join("/getjp")
-            .expect("cannot build query URL");
+    /// Perform a GET request to the SolarLog device with the provided query.
+    async fn request_getjp(&self, token: &str, query: &str) -> Result<String> {
+        log::debug!("Send query request: {}", query);
+        let url = self.base_url.join("/getjp").expect("cannot build query URL");
         let body = format!("token={};{}", token, query);
         let response = self
             .client
             .post(url)
-            .header("Cookie", format!("SolarLog={token}"))
+            .header("Cookie", format!("SolarLog={}", token))
             .body(body)
             .send()
             .await?
             .error_for_status()
             .map_err(Error::RequestError)?;
         let text = response.text().await?;
-        match text.as_str() {
-            t if t.contains("QUERY IMPOSSIBLE") => {
-                return Err(Error::QueryImpossible);
-            }
-            t if t.contains("ACCESS DENIED") => {
-                log::debug!("Access denied, clearing token");
-                self.clear_token(&token).await;
-                return Err(Error::AccessDenied);
-            }
-            _ => {}
+        if text.contains("QUERY IMPOSSIBLE") {
+            return Err(Error::QueryImpossible);
         }
-        log::debug!("Query result: {}", text);
+        if text.contains("ACCESS DENIED") {
+            return Err(Error::AccessDenied);
+        }
+        log::debug!("Query response: {}", text);
         Ok(text)
     }
 }
@@ -212,6 +243,7 @@ fn is_retryable_error(error: &Error) -> bool {
         Error::QueryImpossible => false,
         Error::AccessDenied => true, // Retry if token expires or is invalid
         Error::RequestRejected => false, // Don't retry on circuit breaker rejection
+        Error::LoginExpired => true, // Retry if login expired
     }
 }
 
@@ -223,5 +255,6 @@ fn is_recorded_error(error: &Error) -> bool {
         Error::QueryImpossible => false,                   // Don't record query impossible errors
         Error::AccessDenied => false,                      // Don't record access denied errors
         Error::RequestRejected => false, // Don't record circuit breaker rejections
+        Error::LoginExpired => false, // Don't record login expired errors
     }
 }

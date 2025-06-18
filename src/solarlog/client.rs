@@ -124,8 +124,9 @@ impl Client {
     }
 
     /// Login to SolarLog device.
+    /// No operation is performed if already logged in.
     pub async fn login(&self) -> Result<()> {
-        self.http.login().await?;
+        self.http.login(false).await?;
         Ok(())
     }
 
