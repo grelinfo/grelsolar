@@ -91,8 +91,6 @@ impl HttpClient {
         let text = RetryIf::spawn(
             retry_strategy(),
             || async {
-                self.login(false).await?;
-                
                 self.circuit_breaker
                     .call_with(is_recorded_error, self.do_query(query))
                     .await
@@ -142,7 +140,7 @@ impl HttpClient {
     /// If `force` is true, it will always refresh the token even if it is already set.
     async fn refresh_token(&self, force: bool) -> Result<()> {
         let mut token_write = self.token.write().await;
-        if token_write.is_some() && !force {
+        if !force && token_write.is_some() {
             return Ok(());
         }
         let token = self.request_login().await?;
@@ -191,7 +189,10 @@ impl HttpClient {
     /// Perform a GET request to the SolarLog device with the provided query.
     async fn request_getjp(&self, token: &str, query: &str) -> Result<String> {
         log::debug!("Send query request: {}", query);
-        let url = self.base_url.join("/getjp").expect("cannot build query URL");
+        let url = self
+            .base_url
+            .join("/getjp")
+            .expect("cannot build query URL");
         let body = format!("token={};{}", token, query);
         let response = self
             .client
@@ -255,6 +256,6 @@ fn is_recorded_error(error: &Error) -> bool {
         Error::QueryImpossible => false,                   // Don't record query impossible errors
         Error::AccessDenied => false,                      // Don't record access denied errors
         Error::RequestRejected => false, // Don't record circuit breaker rejections
-        Error::LoginExpired => false, // Don't record login expired errors
+        Error::LoginExpired => false,    // Don't record login expired errors
     }
 }

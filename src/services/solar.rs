@@ -28,7 +28,7 @@ impl SolarService {
         tokio::join!(
             self.current_power_task(),
             self.energy_today_task(),
-            self.inverter_status_task()
+            self.inverter_status_task(),
         );
     }
 
