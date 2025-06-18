@@ -1,4 +1,4 @@
-//! Solar Service.
+//! Solar Bridge Background Service.
 //! This service bridges SolarLog and Home Assistant, enabling automatic synchronization of solar production data between the two systems.
 
 use tokio::time::{interval, Duration};
@@ -6,36 +6,48 @@ use std::sync::Arc;
 
 use crate::{home_assistant, solarlog};
 
-pub struct SolarService {
+pub struct SolarBridgeBackgroundService {
     solarlog: Arc<solarlog::Client>,
     home_assistant: Arc<home_assistant::Client>,
+    power_period: Duration,
+    energy_period: Duration,
+    status_period: Duration,
 }
 
-impl SolarService {
+impl SolarBridgeBackgroundService {
     /// Creates a new instance of `SolarService`.
     pub fn new(
         solarlog: Arc<solarlog::Client>,
         home_assistant: Arc<home_assistant::Client>,
+        power_period: Duration,
+        energy_period: Duration,
+        status_period: Duration,
     ) -> Self {
-        SolarService {
+        SolarBridgeBackgroundService {
             solarlog,
             home_assistant,
+            power_period,
+            energy_period,
+            status_period,
         }
     }
 
-    /// Runs all polling tasks concurrently.
+    /// Run the background service to synchronize data between SolarLog and Home Assistant.
     pub async fn run(&self) {
         tokio::join!(
-            self.current_power_task(),
-            self.energy_today_task(),
-            self.inverter_status_task(),
+            self.sync_solar_power(self.power_period),
+            self.sync_solar_energy(self.energy_period),
+            self.sync_solar_status(self.status_period)
         );
     }
 
-    /// Periodically polls SolarLog for current power and updates Home Assistant if changed.
-    async fn current_power_task(&self) {
+    /// Periodically retrieves the current power from SolarLog and updates Home Assistant if it changes.
+    /// This method runs in a loop, polling the SolarLog API at the specified interval.
+    /// # Arguments
+    /// * `period` - The interval at which to poll SolarLog for current power data.
+    async fn sync_solar_power(&self, period: Duration) {
         let mut last_power = None;
-        let mut interval = interval(Duration::from_secs(1));
+        let mut interval = interval(period);
 
         loop {
             interval.tick().await;
@@ -56,9 +68,12 @@ impl SolarService {
     }
 
     /// Periodically retrieves the inverter status from SolarLog and updates Home Assistant if it changes.
-    async fn energy_today_task(&self) {
+    /// This method runs in a loop, polling the SolarLog API at the specified interval.
+    /// # Arguments
+    /// * `period` - The interval at which to poll SolarLog for inverter status data.
+    async fn sync_solar_energy(&self, period: Duration) {
         let mut last_energy_today = None;
-        let mut interval = interval(Duration::from_secs(60));
+        let mut interval = interval(period);
         let mut today = chrono::Local::now().date_naive();
 
         loop {
@@ -87,10 +102,12 @@ impl SolarService {
     }
 
     /// Periodically retrieves the inverter status from SolarLog and updates Home Assistant if it changes.
-    async fn inverter_status_task(&self) {
+    /// This method runs in a loop, polling the SolarLog API at the specified interval.
+    /// # Arguments
+    /// * `period` - The interval at which to poll SolarLog for inverter status data.
+    async fn sync_solar_status(&self, period: Duration) {
         let mut last_status = None;
-        let mut interval = interval(Duration::from_secs(60));
-
+        let mut interval = interval(period);
         loop {
             interval.tick().await;
 
