@@ -139,7 +139,7 @@ jobs:
         run: cargo test --doc
 
       - name: test
-        run: cargo nextest run --all-features --all-targets --profile ci --no-tests pass
+        run: cargo nextest run --all-features --all-targets --profile ci
 
       - name: upload test results to codecov
         uses: codecov/test-results-action@v1
@@ -149,9 +149,9 @@ jobs:
 
       - name: coverage
         run: |
-          cargo llvm-cov --no-report nextest --no-tests pass
-        # cargo llvm-cov --no-report --doc
-        # cargo llvm-cov report --doctests --lcov --output-path lcov.info
+          cargo llvm-cov --no-report nextest
+          cargo llvm-cov --no-report --doc
+          cargo llvm-cov report --doctests --lcov --output-path lcov.info
 
       - name: upload coverage to codecov
         uses: codecov/codecov-action@v5
