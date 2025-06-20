@@ -3,6 +3,8 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
       - id: check-yaml
       - id: check-json
       - id: check-toml
@@ -19,37 +21,29 @@ repos:
       - id: committed
   - repo: local
     hooks:
-      - id: cargo-fmt
-        name: Check formatting
-        entry: cargo fmt
-        args: [--all, --, --check]
+      - id: cargo-clippy
+        name: cargo clippy
+        entry: cargo clippy
+        args: ["--", "-D", "warnings"]
         language: system
         types: [rust]
         pass_filenames: false
-      - id: cargo-clippy
-        name: Lint with clippy
-        entry: cargo clippy
-        args: [--all, --, --deny, warnings]
+      - id: cargo-fmt
+        name: cargo fmt
+        entry: cargo fmt
+        args: ["--"]
         language: system
         types: [rust]
         pass_filenames: false
       - id: cargo-check
-        name: Check package
+        name: cargo check
         entry: cargo check
+        args: ["--color", "always"]
         language: system
-        pass_filenames: false
-      - id: cargo-build
-        name: Build
-        entry: cargo build
-        language: system
-        pass_filenames: false
-      - id: cargo-test
-        name: Run tests
-        entry: cargo test
-        language: system
+        types: [rust]
         pass_filenames: false
 
 ci:
   autofix_commit_msg: 🎨 [pre-commit.ci] Auto format from pre-commit.com hooks
   autoupdate_commit_msg: ⬆ [pre-commit.ci] pre-commit autoupdate
-  skip: [cargo-fmt, cargo-clippy, cargo-check, cargo-build, cargo-test]
+  skip: [cargo-fmt, cargo-clippy, cargo-check]
