@@ -32,10 +32,14 @@ jobs:
       uses: Swatinem/rust-cache@v2
 
     - name: install clippy-sarif
-      uses: dtolnay/install@clippy-sarif
+      uses: taiki-e/cache-cargo-install-action@v2
+      with:
+        tool: clippy-sarif
 
     - name: install sarif-fmt
-      uses: dtolnay/install@sarif-fmt
+      uses: taiki-e/cache-cargo-install-action@v2
+      with:
+        tool: sarif-fmt
 
     - name: cargo clippy sarif
       run: >
@@ -111,13 +115,19 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: install cargo-nextest
-        uses: dtolnay/install@cargo-nextest
+        uses: taiki-e/cache-cargo-install-action@v2
+        with:
+          tool: cargo-nextest
 
       - name: install cargo-llvm-cov
-        uses: dtolnay/install@cargo-llvm-cov
+        uses: taiki-e/cache-cargo-install-action@v2
+        with:
+          tool: cargo-llvm-cov
 
       - name: install cargo-edit
-        uses: dtolnay/install@cargo-edit
+        uses: taiki-e/cache-cargo-install-action@v2
+        with:
+          tool: cargo-edit
 
       - name: set version
         run: cargo set-version ${{ steps.version.outputs.BUILD_VERSION }}
@@ -165,7 +175,9 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: install cargo-edit
-        uses: dtolnay/install@cargo-edit
+        uses: taiki-e/cache-cargo-install-action@v2
+        with:
+          tool: cargo-edit
 
       - name: set version
         run: cargo set-version ${{ steps.version.outputs.BUILD_VERSION }}
