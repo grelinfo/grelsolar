@@ -2,6 +2,12 @@
 name = "grelsolar"
 version = "0.0.0" # Managed by CI
 edition = "2024"
+license = "MIT"
+authors = ["Loïc Gremaud <loic.gremaud@grelinfo.ch>"]
+description = "Sync solar data from Solar-Log to Home Assistant."
+homepage = "https://github.com/grelinfo/grelsolar"
+repository = "https://github.com/grelinfo/grelsolar"
+readme = "README.md"
 
 [dependencies]
 async-lock = "3.4.0"
