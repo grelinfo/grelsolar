@@ -35,8 +35,8 @@ impl Config {
     /// Creates a new `Config` instance by reading environment variables.
     pub fn from_env() -> Result<Self, ConfigError> {
         Ok(Self {
-            app_name: string_from_env("CARGO_PKG_NAME")?,
-            app_version: string_from_env("CARGO_PKG_VERSION")?,
+            app_name: env!("CARGO_PKG_NAME").to_string(), /// At compile time
+            app_version: env!("CARGO_PKG_VERSION").to_string(), /// At compile time
             app_log: string_from_env_with_default("APP_LOG", "error"),
             app_log_style: string_from_env_with_default("APP_LOG_STYLE", "always"),
             solarlog_url: url_from_env("SOLARLOG_URL")?,
