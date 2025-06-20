@@ -90,3 +90,16 @@ fn today_midnight_rfc3339() -> String {
         .map(|dt| dt.to_rfc3339())
         .expect("cannot create midnight time")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test client creation with a valid URL and token don't panic.
+    #[tokio::test]
+    async fn test_new() {
+        let url = Url::parse("http://localhost:8123").unwrap();
+        let token = "test_token";
+        Client::new(&url, token);
+    }
+}
