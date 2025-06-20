@@ -68,6 +68,8 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # fetch all history for versioning
 
       - name: setup python
         uses: actions/setup-python@v4
@@ -107,14 +109,17 @@ jobs:
       - name: cache rust
         uses: Swatinem/rust-cache@v2
 
-      - name: set version
-        run: cargo set-version ${{ steps.version.outputs.BUILD_VERSION }}
-
       - name: cargo install cargo-nextest
         run: cargo install cargo-nextest --locked
 
       - name: cargo install cargo-llvm-cov
         run: cargo install cargo-llvm-cov --locked
+
+      - name: cargo install cargo-edit
+        run: cargo install cargo-edit --locked
+
+      - name: set version
+        run: cargo set-version ${{ steps.version.outputs.BUILD_VERSION }}
 
       - name: cargo build
         run: cargo build --all-targets
@@ -157,6 +162,9 @@ jobs:
 
       - name: cache rust
         uses: Swatinem/rust-cache@v2
+
+      - name: cargo install cargo-edit
+        run: cargo install cargo-edit --locked
 
       - name: set version
         run: cargo set-version ${{ steps.version.outputs.BUILD_VERSION }}
