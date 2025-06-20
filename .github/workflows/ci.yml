@@ -31,11 +31,11 @@ jobs:
     - name: cache rust
       uses: Swatinem/rust-cache@v2
 
-    - name: cargo install clippy-sarif
-      run: cargo install clippy-sarif --locked
+    - name: install clippy-sarif
+      uses: dtolnay/install@clippy-sarif
 
-    - name: cargo install sarif-fmt
-      run: cargo install sarif-fmt --locked
+    - name: install sarif-fmt
+      uses: dtolnay/install@sarif-fmt
 
     - name: cargo clippy sarif
       run: >
@@ -110,14 +110,14 @@ jobs:
       - name: cache rust
         uses: Swatinem/rust-cache@v2
 
-      - name: cargo install cargo-nextest
-        run: cargo install cargo-nextest --locked
+      - name: install cargo-nextest
+        uses: dtolnay/install@cargo-nextest
 
-      - name: cargo install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov --locked
+      - name: install cargo-llvm-cov
+        uses: dtolnay/install@cargo-llvm-cov
 
-      - name: cargo install cargo-edit
-        run: cargo install cargo-edit --locked
+      - name: install cargo-edit
+        uses: dtolnay/install@cargo-edit
 
       - name: set version
         run: cargo set-version ${{ steps.version.outputs.BUILD_VERSION }}
@@ -164,8 +164,8 @@ jobs:
       - name: cache rust
         uses: Swatinem/rust-cache@v2
 
-      - name: cargo install cargo-edit
-        run: cargo install cargo-edit --locked
+      - name: install cargo-edit
+        uses: dtolnay/install@cargo-edit
 
       - name: set version
         run: cargo set-version ${{ steps.version.outputs.BUILD_VERSION }}
