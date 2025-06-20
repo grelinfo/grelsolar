@@ -1,0 +1,4 @@
+[toolchain]
+channel = "stable"
+component = ["rustfmt", "clippy", "llvm-tools-preview"]
+targets = ["aarch64-apple-darwin", "x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]

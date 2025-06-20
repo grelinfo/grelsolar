@@ -6,41 +6,165 @@ on:
   pull_request:
     branches: ["main"]
 
+permissions:
+  contents: read
+
 env:
+  RUSTFLAGS: -D warnings
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
-
+    permissions:
+      security-events: write # to upload sarif results
     steps:
-      - name: Checkout
+    - name: checkout
+      uses: actions/checkout@v4
+
+    - name: install rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      # with:
+        # components: clippy, rustfmt
+
+    - name: cache rust
+      uses: Swatinem/rust-cache@v2
+
+    - name: cargo install clippy-sarif
+      run: cargo install clippy-sarif --locked
+
+    - name: cargo install clippy-sarif
+      run: cargo install sarif-fmt --locked
+
+    - name: cargo clippy sarif
+      run: >
+        cargo clippy --all-targets --message-format=json
+        | clippy-sarif
+        | tee clippy-results.sarif
+        | sarif-fmt
+      continue-on-error: true
+
+    - name: codeql upload sarif
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: clippy-results.sarif
+        wait-for-processing: true
+
+    - name: cargo clippy report
+      run: cargo clippy --all-targets --keep-going --
+
+    - name: cargo fmt
+      run: cargo fmt --all -- --check
+
+    - name: cargo check
+      run: cargo check --all-targets
+
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
         uses: actions/checkout@v4
 
-      - name: Cache Cargo dependencies
-        uses: actions/cache@v4
+      - name: install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        # with:
+        #   components: llvm-tools-preview
+
+      - name: cache rust
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo install cargo-nextest
+        run: cargo install cargo-nextest --locked
+
+      - name: cargo install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov --locked
+
+      - name: cargo build
+        run: cargo build --all-targets
+
+      - name: cargo test doc
+        run: cargo test --doc
+
+      - name: test
+        run: cargo nextest run --workplace --all-features --all-targets --profile ci
+
+      - name: upload test results to codecov
+        uses: codecov/test-results-action@v1
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: Check formatting
-        run: cargo fmt -- --check
+      - name: coverage
+        run: |
+          cargo llvm-cov --no-report nextest
+          cargo llvm-cov --no-report --doc
+          cargo llvm-cov report --doctests --lcov --output-path lcov.info
+
+      - name: upload coverage to codecov
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  build_docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+
+      - name: Build Docker image
+        run: |
+          docker build . --file Dockerfile --tag grelsolar:${{ steps.cargo_version.outputs.version }}
+
+  release:
+    if: github.ref == 'refs/heads/main'
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # needs full history for release-plz
+
+      - name: install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: install cargo-release
+        run: cargo install cargo-release --locked
+
+      - name: run release-plz
+        uses: release-plz/action@v0.5
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release-pr:
+    if: github.ref == 'refs/heads/main'
+    name: Release-plz
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # needs full history for release-plz
         
-      - name: Lint with clippy
-        run: cargo clippy -- -D warnings
+      - name: install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Check package
-        run: cargo check 
+      - name: install release-plz
+        run: cargo install release-plz --locked
 
-      - name: Build
-        run: cargo build
-
-      - name: Run tests
-        run: cargo test
-
-
+      - name: run release-plz
+        uses: release-plz/action@v0.5
+        with:
+          command: release-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

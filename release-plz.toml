@@ -1,0 +1,13 @@
+[workspace]
+changelog_config = "cliff.toml"
+changelog_update = true
+dependencies_update = false # dependabot will handle this
+git_tag_enable = true
+git_release_enable = true
+pr_labels = ["release"]
+allow_dirty = false
+publish = false # no cargo publish, only git tag
+publish_allow_dirty = false
+semver_check = true
+release_commits = "^🔖"
+
