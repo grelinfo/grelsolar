@@ -13,7 +13,7 @@ setup:
 	# @rustup component add llvm-tools-preview
 	@cargo install cargo-nextest --locked
 	@cargo install cargo-llvm-cov --locked
-    
+
 clean:
 	@cargo clean
 	@rm -rf target
