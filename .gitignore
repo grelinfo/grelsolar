@@ -1,2 +1,4 @@
 /target
 .env
+.github/workflows/ci.yml
+lcov.info
