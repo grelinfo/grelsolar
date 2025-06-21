@@ -114,15 +114,15 @@ jobs:
       - name: cache rust
         uses: Swatinem/rust-cache@v2
 
-      - name: install cargo-nextest
-        uses: taiki-e/cache-cargo-install-action@v2
-        with:
-          tool: cargo-nextest
-
       - name: install cargo-llvm-cov
         uses: taiki-e/cache-cargo-install-action@v2
         with:
           tool: cargo-llvm-cov
+
+      - name: install cargo-nextest
+        uses: taiki-e/cache-cargo-install-action@v2
+        with:
+          tool: cargo-nextest
 
       - name: install cargo-edit
         uses: taiki-e/cache-cargo-install-action@v2
@@ -147,11 +147,11 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: coverage
-        run: |
-          cargo llvm-cov --no-report nextest --lcov --output-path lcov.info
-        # cargo llvm-cov --no-report --doc
-        # cargo llvm-cov report --doctests --lcov --output-path lcov.info
+      - name: run coverage
+        run: cargo llvm-cov nextest
+
+      - name: generate coverage report
+        run: cargo llvm-cov report --lcov --output-path lcov.info
 
       - name: upload coverage to codecov
         uses: codecov/codecov-action@v5
