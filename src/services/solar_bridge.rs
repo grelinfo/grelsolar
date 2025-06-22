@@ -1,6 +1,7 @@
 //! Solar Bridge Background Service.
 //! This service bridges SolarLog and Home Assistant, enabling automatic synchronization of solar production data between the two systems.
 
+use chrono::{DateTime, TimeZone};
 use std::sync::Arc;
 use tokio::time::{Duration, interval};
 
@@ -74,14 +75,14 @@ impl SolarBridgeBackgroundService {
     async fn sync_solar_energy(&self, period: Duration) {
         let mut last_energy_today = None;
         let mut interval = interval(period);
-        let mut today = chrono::Local::now().date_naive();
+        let mut today_midnight = Self::today_midnight();
 
         loop {
             interval.tick().await;
 
-            let now = chrono::Local::now().date_naive();
-            if now != today {
-                today = now;
+            let now = Self::today_midnight();
+            if now != today_midnight {
+                today_midnight = now;
                 last_energy_today = None;
             }
 
@@ -90,7 +91,7 @@ impl SolarBridgeBackgroundService {
                     if last_energy_today != Some(energy_today) {
                         if let Err(e) = self
                             .home_assistant
-                            .set_solar_energy_today(energy_today)
+                            .set_solar_energy(energy_today, &today_midnight)
                             .await
                         {
                             log::error!("Failed to update energy today in Home Assistant: {e}");
@@ -131,5 +132,13 @@ impl SolarBridgeBackgroundService {
                 Err(e) => log::error!("Error retrieving inverter status from SolarLog: {e}"),
             }
         }
+    }
+
+    fn today_midnight() -> DateTime<chrono::Local> {
+        chrono::Local::now()
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
+            .and_then(|midnight| chrono::Local.from_local_datetime(&midnight).single())
+            .expect("cannot create midnight datetime")
     }
 }
