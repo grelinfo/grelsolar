@@ -75,7 +75,7 @@ impl Client {
     ) -> StateCreateOrUpdate {
         let kwh = energy_today as f64 / 1000.0; // Convert to kWh
         StateCreateOrUpdate {
-            state: kwh.trunc().to_string(),
+            state: kwh.to_string(),
             attributes: Some(
                 [
                     ("unit_of_measurement".to_string(), "kWh".to_string()),
@@ -142,7 +142,11 @@ mod tests {
     #[rstest]
     #[case(5000, "5")]
     #[case(0, "0")]
-    #[case(-3000, "-3")]
+    #[case(-5000, "-5")]
+    #[case(1234, "1.234")]
+    #[case(-1234, "-1")]
+    #[case(123, "0.123")]
+    #[case(-123, "-0.123")]
     fn test_create_solar_energy_state(#[case] energy_today: i64, #[case] expected_state: &str) {
         let last_reset = DateTime::parse_from_rfc3339("2023-10-01T00:00:00+01:00")
             .unwrap()
