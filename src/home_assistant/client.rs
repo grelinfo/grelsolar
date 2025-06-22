@@ -144,7 +144,7 @@ mod tests {
     #[case(0, "0")]
     #[case(-5000, "-5")]
     #[case(1234, "1.234")]
-    #[case(-1234, "-1")]
+    #[case(-1234, "-1.234")]
     #[case(123, "0.123")]
     #[case(-123, "-0.123")]
     fn test_create_solar_energy_state(#[case] energy_today: i64, #[case] expected_state: &str) {
