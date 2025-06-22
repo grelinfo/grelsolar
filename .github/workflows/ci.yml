@@ -184,9 +184,7 @@ jobs:
         run: cargo set-version ${{ steps.version.outputs.BUILD_VERSION }}
 
       - name: cargo publish
-        run: cargo publish --token ${{ secrets.CARGO_TOKEN }} --allow-dirty
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+        run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --allow-dirty
 
   docker:
     name: Docker Build and Publish
