@@ -1,22 +1,13 @@
 //! SolarLog Client.
 //! This client is the higher level API client for SolarLog.
-use super::http_client::{self, HttpClient};
+use super::http_client::HttpClient;
+use crate::solarlog::Result;
 use reqwest::Url;
 use serde_json::Value::Null;
 use serde_json::json;
 use std::str::FromStr;
 use strum_macros::Display;
 use strum_macros::EnumString;
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("HTTP client error: {0}")]
-    HttpClientError(#[from] http_client::Error),
-    #[error("JSON serialization error: {0}")]
-    JsonSerializationError(#[from] serde_json::Error),
-}
-
-type Result<T> = std::result::Result<T, Error>;
 
 pub struct Client {
     http: HttpClient,

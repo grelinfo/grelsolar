@@ -2,20 +2,10 @@
 //! This client is the higher level API client for Home Assistant.
 
 use super::http_client::HttpClient;
-use crate::home_assistant::{http_client, schemas::StateCreateOrUpdate};
-use chrono::DateTime;
+use crate::home_assistant::Result;
+use crate::home_assistant::schemas::StateCreateOrUpdate;
+use chrono::{DateTime, TimeZone};
 use reqwest::Url;
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("HTTP client error: {0}")]
-    HttpClientError(#[from] http_client::Error),
-    #[error("JSON serialization error: {0}")]
-    SerializationError(#[from] serde_json::Error),
-}
-
-type Result<T> = std::result::Result<T, Error>;
-
 pub struct Client {
     http: HttpClient,
 }
@@ -28,10 +18,10 @@ impl Client {
     }
 
     /// Set the solar energy produced today in Home Assistant.
-    pub async fn set_solar_energy(
+    pub async fn set_solar_energy<Tz: TimeZone>(
         &self,
         energy_today: i64,
-        last_reset: &DateTime<chrono::Local>,
+        last_reset: &DateTime<Tz>,
     ) -> Result<()> {
         let state = Self::create_solar_energy_state(energy_today, last_reset);
         self.http.set_state("sensor.solar_energy", &state).await?;
@@ -69,7 +59,7 @@ impl Client {
     }
 
     /// Create the state for solar energy produced today.
-    fn create_solar_energy_state<Tz: chrono::TimeZone>(
+    fn create_solar_energy_state<Tz: TimeZone>(
         energy_today: i64,
         last_reset: &DateTime<Tz>,
     ) -> StateCreateOrUpdate {

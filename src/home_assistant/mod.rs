@@ -1,7 +1,9 @@
 //! Home Assistant Integration Module
 //! The integration is done via HTTP JSON API.
-pub mod client;
-pub use client::Client;
-
+mod client;
+mod error;
 mod http_client;
 mod schemas;
+
+pub use client::Client;
+pub use error::{Error, Result};
