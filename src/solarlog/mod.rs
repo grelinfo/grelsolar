@@ -4,5 +4,5 @@ mod client;
 mod error;
 mod http_client;
 
-pub use client::Client;
+pub use client::{Client, InverterStatus};
 pub use error::{Error, Result};

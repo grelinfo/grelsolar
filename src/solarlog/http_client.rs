@@ -7,6 +7,7 @@ use failsafe::{
     futures::CircuitBreaker,
 };
 use reqwest::{Client, StatusCode, Url};
+use serde_json::Value;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio_retry::RetryIf;
@@ -32,7 +33,7 @@ impl HttpClient {
             password: password.to_string(),
             base_url: url.clone(),
             token: RwLock::new(None),
-            circuit_breaker: circuit_breaker(),
+            circuit_breaker: Self::circuit_breaker(),
         }
     }
 
@@ -47,45 +48,56 @@ impl HttpClient {
     /// If `force` is true, it will always login even if already logged in.
     pub async fn login(&self, force: bool) -> Result<()> {
         RetryIf::spawn(
-            retry_strategy(),
+            Self::retry_strategy(),
             || async {
                 self.circuit_breaker
-                    .call_with(is_recorded_error, self.do_login(force))
+                    .call_with(Self::is_recorded_error, self.do_login(force))
                     .await
                     .map_err(|err| match err {
                         failsafe::Error::Inner(e) => e,
                         failsafe::Error::Rejected => Error::RequestRejected,
                     })
             },
-            is_retryable_error,
+            Self::is_retryable_error,
         )
         .await?;
         Ok(())
     }
 
-    /// Logout from SolarLog device.
+    /// Logs out from the SolarLog device.
+    ///
+    /// This method clears the authentication token and sends a logout request to the device.
+    /// The logout request is performed only once, without retries or circuit breaker protection.
+    /// If the logout request fails, the error is logged as a warning, but no error is returned to the caller.
     pub async fn logout(&self) {
         let mut token_lock = self.token.write().await;
-        *token_lock = None;
+        if let Some(token) = token_lock.take() {
+            if let Err(err) = self.request_logout(&token).await {
+                log::warn!("Failed to logout: {}", err);
+            } else {
+                log::debug!("Logout successful");
+            }
+        } else {
+            log::debug!("No token to logout");
+        }
     }
 
     /// Query the SolarLog device.
-    pub async fn query(&self, query: &str) -> Result<String> {
-        let text = RetryIf::spawn(
-            retry_strategy(),
+    pub async fn query(&self, query: &str) -> Result<Value> {
+        RetryIf::spawn(
+            Self::retry_strategy(),
             || async {
                 self.circuit_breaker
-                    .call_with(is_recorded_error, self.do_query(query))
+                    .call_with(Self::is_recorded_error, self.do_query(query))
                     .await
                     .map_err(|err| match err {
                         failsafe::Error::Inner(e) => e,
                         failsafe::Error::Rejected => Error::RequestRejected,
                     })
             },
-            is_retryable_error,
+            Self::is_retryable_error,
         )
-        .await?;
-        Ok(text)
+        .await
     }
 
     // Execute a login operation.
@@ -99,22 +111,23 @@ impl HttpClient {
     }
 
     /// Execute a query operation.
-    async fn do_query(&self, query: &str) -> Result<String> {
+    async fn do_query(&self, query: &str) -> Result<Value> {
         self.do_login(false).await?;
         let token_read = self.token.read().await;
-        let token = match *token_read {
-            Some(ref token) => token,
-            None => return Err(Error::LoginExpired),
-        };
-        let result = self.request_getjp(token, query).await;
-        if let Err(Error::AccessDenied) = result {
-            // Clone and release the read lock before acquiring the write lock
-            let token = token.clone();
-            drop(token_read); // Release read lock before acquiring write lock
-            self.clear_token(&token).await;
-            return Err(Error::AccessDenied);
+        let token = token_read.as_ref().ok_or(Error::LoginExpired)?;
+        let response_text = self.request_getjp(token, query).await?;
+        let result = Self::validate_query_response(&response_text);
+        match result {
+            Ok(text) => serde_json::from_str(text).map_err(Error::JsonSerializationFailed),
+            Err(Error::AccessDenied) => {
+                // Clone and release the read lock before acquiring the write lock
+                let token = token.clone();
+                drop(token_read); // Release read lock before acquiring write lock
+                self.clear_token(&token).await;
+                Err(Error::AccessDenied)
+            }
+            Err(e) => Err(e),
         }
-        result
     }
 
     /// Refresh the login token if necessary.
@@ -122,15 +135,22 @@ impl HttpClient {
     async fn refresh_token(&self, force: bool) -> Result<()> {
         let mut token_write = self.token.write().await;
         if !force && token_write.is_some() {
+            log::debug!("Token already set, no need to refresh");
             return Ok(());
         }
         let token = self.request_login().await?;
-        let result = match token {
-            Some(_) => Ok(()),
-            None => Err(Error::WrongPassword),
-        };
-        *token_write = token;
-        result
+        match token {
+            Some(_) => {
+                *token_write = token;
+                log::debug!("Token refreshed");
+                Ok(())
+            }
+            None => {
+                *token_write = None;
+                log::debug!("Token cleared");
+                Err(Error::WrongPassword)
+            }
+        }
     }
 
     /// Clear the token if matching the provided token.
@@ -138,9 +158,9 @@ impl HttpClient {
     async fn clear_token(&self, token: &str) {
         let mut token_write = self.token.write().await;
         if let Some(ref current_token) = *token_write {
-            log::debug!("Clearing token");
             if current_token == token {
                 *token_write = None;
+                log::debug!("Token cleared");
             }
         }
     }
@@ -167,6 +187,24 @@ impl HttpClient {
         Ok(token)
     }
 
+    /// Perform a logout request to the SolarLog device.
+    pub async fn request_logout(&self, token: &str) -> Result<()> {
+        log::debug!("Send logout request");
+        let url = self
+            .base_url
+            .join("/logout")
+            .expect("cannot build logout URL");
+        self.client
+            .post(url)
+            .header("Cookie", format!("SolarLog={token}"))
+            .send()
+            .await?
+            .error_for_status()
+            .map_err(Error::RequestFailed)?;
+        log::debug!("Logout successful");
+        Ok(())
+    }
+
     /// Perform a GET request to the SolarLog device with the provided query.
     async fn request_getjp(&self, token: &str, query: &str) -> Result<String> {
         log::debug!("Send query request: {}", query);
@@ -178,7 +216,7 @@ impl HttpClient {
         let response = self
             .client
             .post(url)
-            .header("Cookie", format!("SolarLog={}", token))
+            .header("Cookie", format!("SolarLog={token}"))
             .body(body)
             .send()
             .await?
@@ -186,66 +224,65 @@ impl HttpClient {
             .map_err(Error::RequestFailed)?;
         let text = response.text().await?;
         log::debug!("Query response: {}", text);
-        Self::error_for_response(&text)?;
         Ok(text)
     }
 
     /// Pure function to parse the SolarLog getjp response and map to Result.
-    fn error_for_response(text: &str) -> Result<()> {
+    fn validate_query_response(text: &str) -> Result<&str> {
         if text.contains("QUERY IMPOSSIBLE") {
             return Err(Error::QueryImpossible);
         }
         if text.contains("ACCESS DENIED") {
             return Err(Error::AccessDenied);
         }
-        Ok(())
+        Ok(text)
     }
-}
 
-/// Creates a circuit breaker with a failure policy that allows up to 3 consecutive failures and will retry after 60 seconds.
-fn circuit_breaker() -> failsafe::StateMachine<ConsecutiveFailures<Constant>, ()> {
-    let backoff = backoff::constant(Duration::from_secs(60));
-    let policy = failure_policy::consecutive_failures(5, backoff);
-    // Creates a circuit breaker with given policy.
-    failsafe::Config::new().failure_policy(policy).build()
-}
-
-/// Create a retry strategy with exponential backoff starting at 10 milliseconds, with jitter, and a maximum of 3 retries.
-fn retry_strategy() -> impl Iterator<Item = Duration> {
-    ExponentialBackoff::from_millis(10).map(jitter).take(3)
-}
-
-/// Check if the error is a HTTP 4xx client error.
-fn is_client_error(error: &reqwest::Error) -> bool {
-    error
-        .status()
-        .map(|status_code| StatusCode::is_client_error(&status_code))
-        .unwrap_or(false)
-}
-
-// Predicate function for the retry strategy to determine if an error is retryable.
-fn is_retryable_error(error: &Error) -> bool {
-    match error {
-        Error::RequestFailed(err) => is_client_error(err),
-        Error::WrongPassword => false,
-        Error::QueryImpossible => false,
-        Error::AccessDenied => true, // Retry if token expires or is invalid
-        Error::RequestRejected => false, // Don't retry on circuit breaker rejection
-        Error::LoginExpired => true, // Retry if login expired
-        Error::JsonSerializationFailed(_) => false, // Don't retry on serialization errors
+    /// Creates a circuit breaker with a failure policy that allows up to 3 consecutive failures and will retry after 60 seconds.
+    fn circuit_breaker() -> failsafe::StateMachine<ConsecutiveFailures<Constant>, ()> {
+        let backoff = backoff::constant(Duration::from_secs(60));
+        let policy = failure_policy::consecutive_failures(5, backoff);
+        // Creates a circuit breaker with given policy.
+        failsafe::Config::new().failure_policy(policy).build()
     }
-}
 
-/// Predicate function for the circuit breaker to record errors that are not client errors.
-fn is_recorded_error(error: &Error) -> bool {
-    match error {
-        Error::RequestFailed(err) => !is_client_error(err), // Don't record client errors
-        Error::WrongPassword => false,                      // Don't record wrong password errors
-        Error::QueryImpossible => false,                    // Don't record query impossible errors
-        Error::AccessDenied => false,                       // Don't record access denied errors
-        Error::RequestRejected => false, // Don't record circuit breaker rejections
-        Error::LoginExpired => false,    // Don't record login expired errors
-        Error::JsonSerializationFailed(_) => false, // Don't record serialization errors
+    /// Create a retry strategy with exponential backoff starting at 10 milliseconds, with jitter, and a maximum of 3 retries.
+    fn retry_strategy() -> impl Iterator<Item = Duration> {
+        ExponentialBackoff::from_millis(10).map(jitter).take(3)
+    }
+
+    /// Check if the error is a HTTP 4xx client error.
+    fn is_client_error(error: &reqwest::Error) -> bool {
+        error
+            .status()
+            .map(|status_code| StatusCode::is_client_error(&status_code))
+            .unwrap_or(false)
+    }
+
+    // Predicate function for the retry strategy to determine if an error is retryable.
+    fn is_retryable_error(error: &Error) -> bool {
+        match error {
+            Error::RequestFailed(err) => Self::is_client_error(err),
+            Error::WrongPassword => false,
+            Error::QueryImpossible => false,
+            Error::AccessDenied => true, // Retry if token expires or is invalid
+            Error::RequestRejected => false, // Don't retry on circuit breaker rejection
+            Error::LoginExpired => true, // Retry if login expired
+            Error::JsonSerializationFailed(_) => false, // Don't retry on serialization errors
+        }
+    }
+
+    /// Predicate function for the circuit breaker to record errors that are not client errors.
+    fn is_recorded_error(error: &Error) -> bool {
+        match error {
+            Error::RequestFailed(err) => !Self::is_client_error(err), // Don't record client errors
+            Error::WrongPassword => false, // Don't record wrong password errors
+            Error::QueryImpossible => false, // Don't record query impossible errors
+            Error::AccessDenied => false,  // Don't record access denied errors
+            Error::RequestRejected => false, // Don't record circuit breaker rejections
+            Error::LoginExpired => false,  // Don't record login expired errors
+            Error::JsonSerializationFailed(_) => false, // Don't record serialization errors
+        }
     }
 }
 
@@ -281,13 +318,13 @@ mod tests {
 
     #[test]
     fn test_error_for_response() {
-        assert!(HttpClient::error_for_response(r#"{"780": 3628}"#).is_ok());
+        assert!(HttpClient::validate_query_response(r#"{"780": 3628}"#).is_ok());
         assert!(matches!(
-            HttpClient::error_for_response(r#"{{"QUERY IMPOSSIBLE 000"}}"#),
+            HttpClient::validate_query_response(r#"{{"QUERY IMPOSSIBLE 000"}}"#),
             Err(Error::QueryImpossible)
         ));
         assert!(matches!(
-            HttpClient::error_for_response(r#"{"780": "ACCESS DENIED"}"#),
+            HttpClient::validate_query_response(r#"{"780": "ACCESS DENIED"}"#),
             Err(Error::AccessDenied)
         ));
     }
@@ -297,8 +334,8 @@ mod tests {
         let err_400 = make_reqwest_error_with_status(StatusCode::BAD_REQUEST);
         let err_500 = make_reqwest_error_with_status(StatusCode::INTERNAL_SERVER_ERROR);
 
-        assert!(is_client_error(&err_400));
-        assert!(!is_client_error(&err_500));
+        assert!(HttpClient::is_client_error(&err_400));
+        assert!(!HttpClient::is_client_error(&err_500));
     }
 
     #[test]
@@ -308,14 +345,16 @@ mod tests {
             StatusCode::INTERNAL_SERVER_ERROR,
         ));
 
-        assert!(is_retryable_error(&err_400));
-        assert!(!is_retryable_error(&err_500));
-        assert!(!is_retryable_error(&Error::WrongPassword));
-        assert!(!is_retryable_error(&Error::QueryImpossible));
-        assert!(is_retryable_error(&Error::AccessDenied));
-        assert!(!is_retryable_error(&Error::RequestRejected));
-        assert!(is_retryable_error(&Error::LoginExpired));
-        assert!(!is_retryable_error(&create_json_serialization_error()));
+        assert!(HttpClient::is_retryable_error(&err_400));
+        assert!(!HttpClient::is_retryable_error(&err_500));
+        assert!(!HttpClient::is_retryable_error(&Error::WrongPassword));
+        assert!(!HttpClient::is_retryable_error(&Error::QueryImpossible));
+        assert!(HttpClient::is_retryable_error(&Error::AccessDenied));
+        assert!(!HttpClient::is_retryable_error(&Error::RequestRejected));
+        assert!(HttpClient::is_retryable_error(&Error::LoginExpired));
+        assert!(!HttpClient::is_retryable_error(
+            &create_json_serialization_error()
+        ));
     }
 
     #[test]
@@ -325,13 +364,15 @@ mod tests {
             StatusCode::INTERNAL_SERVER_ERROR,
         ));
 
-        assert!(!is_recorded_error(&err_400));
-        assert!(is_recorded_error(&err_500));
-        assert!(!is_recorded_error(&Error::WrongPassword));
-        assert!(!is_recorded_error(&Error::QueryImpossible));
-        assert!(!is_recorded_error(&Error::AccessDenied));
-        assert!(!is_recorded_error(&Error::RequestRejected));
-        assert!(!is_recorded_error(&Error::LoginExpired));
-        assert!(!is_recorded_error(&create_json_serialization_error()));
+        assert!(!HttpClient::is_recorded_error(&err_400));
+        assert!(HttpClient::is_recorded_error(&err_500));
+        assert!(!HttpClient::is_recorded_error(&Error::WrongPassword));
+        assert!(!HttpClient::is_recorded_error(&Error::QueryImpossible));
+        assert!(!HttpClient::is_recorded_error(&Error::AccessDenied));
+        assert!(!HttpClient::is_recorded_error(&Error::RequestRejected));
+        assert!(!HttpClient::is_recorded_error(&Error::LoginExpired));
+        assert!(!HttpClient::is_recorded_error(
+            &create_json_serialization_error()
+        ));
     }
 }

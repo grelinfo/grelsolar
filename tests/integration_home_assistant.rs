@@ -1,3 +1,4 @@
+//! Integration tests for the Home Assistant client.
 use chrono::TimeZone;
 use grelsolar::home_assistant::Client;
 use grelsolar::home_assistant::Error;

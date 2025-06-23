@@ -3,6 +3,7 @@
 use super::http_client::HttpClient;
 use crate::solarlog::Result;
 use reqwest::Url;
+use serde_json::Value;
 use serde_json::Value::Null;
 use serde_json::json;
 use std::str::FromStr;
@@ -128,76 +129,296 @@ impl Client {
 
     /// Get the power produced or consumed in Watt (W).
     pub async fn get_current_power(&self) -> Result<Option<i64>> {
-        let value = self
-            .get_inverter_value_as_str(CURRENT_POWER, 0)
-            .await?
-            .and_then(|s| s.parse::<i64>().ok());
-        Ok(value)
+        let query = Self::create_inverter_query(CURRENT_POWER, 0);
+        let json_value = self.http.query(&query).await?;
+        Self::extract_inverter_value_as_i64(&json_value, CURRENT_POWER, 0)
     }
 
     /// Get the inverter status.
     pub async fn get_status(&self) -> Result<Option<InverterStatus>> {
-        let value = self
-            .get_inverter_value_as_str(STATUS, 0)
-            .await?
-            .and_then(|s| InverterStatus::from_str(&s).ok());
-        Ok(value)
+        let query = Self::create_inverter_query(STATUS, 0);
+        let json_value = self.http.query(&query).await?;
+        Self::extract_inverter_status(&json_value)
     }
 
     /// Get the energy produced or consumed during the current day in watt-hours (Wh).
     pub async fn get_energy_today(&self) -> Result<Option<i64>> {
-        let today = chrono::Local::now().format("%d.%m.%y").to_string();
-        self.get_inverter_date_value_as_i64(DAILY_ENERGY, 0, &today)
-            .await
+        let query = Self::create_inverter_query(DAILY_ENERGY, 0);
+        let json_value = self.http.query(&query).await?;
+        Self::extract_energy_for_current_day(&json_value)
     }
 
     /// Get the energy produced or consumed during the current month in watt-hours (Wh).
     pub async fn get_energy_month(&self) -> Result<Option<i64>> {
-        let first_day_of_this_month = chrono::Local::now().format("01.%m.%y").to_string();
-        self.get_inverter_date_value_as_i64(MONTHLY_ENERGY, 0, &first_day_of_this_month)
-            .await
+        let query = Self::create_inverter_query(MONTHLY_ENERGY, 0);
+        let json_value = self.http.query(&query).await?;
+        Self::extract_energy_for_current_month(&json_value)
     }
 
-    /// Get the SolarLog device for a specific key and inverter ID, returning the value as a string.
-    async fn get_inverter_value_as_str(
-        &self,
-        key: &str,
+    /// Get the value for a specific inverter ID and key as a string.
+    fn create_inverter_query(index: &str, inverter_id: u8) -> String {
+        json!({ index: { inverter_id.to_string(): Null } }).to_string()
+    }
+
+    /// Get the value for a specific inverter ID and key as a string.
+    fn today_string() -> String {
+        chrono::Local::now().format("%d.%m.%y").to_string()
+    }
+
+    /// Get the first day of the current month as a string.
+    fn first_day_of_this_month_string() -> String {
+        chrono::Local::now().format("01.%m.%y").to_string()
+    }
+
+    /// Extract the energy for the current day.
+    fn extract_energy_for_current_day(json_value: &Value) -> Result<Option<i64>> {
+        Self::extract_inverter_value_by_id_as_i64(
+            json_value,
+            DAILY_ENERGY,
+            0,
+            &Self::today_string(),
+        )
+    }
+
+    /// Extract the energy for the current month.
+    fn extract_energy_for_current_month(json_value: &Value) -> Result<Option<i64>> {
+        Self::extract_inverter_value_by_id_as_i64(
+            json_value,
+            MONTHLY_ENERGY,
+            0,
+            &Self::first_day_of_this_month_string(),
+        )
+    }
+
+    /// Extract the status of the first inverter as a enum.
+    pub fn extract_inverter_status(json_value: &Value) -> Result<Option<InverterStatus>> {
+        let status_str = Self::extract_inverter_value_as_string(json_value, STATUS, 0)?;
+        let status = status_str
+            .as_ref()
+            .and_then(|s| InverterStatus::from_str(s).ok());
+        Ok(status)
+    }
+
+    /// Extract the value for a specific inverter ID and index as i64.
+    fn extract_inverter_value_as_i64(
+        json_value: &Value,
+        index: &str,
         inverter_id: u8,
-    ) -> Result<Option<String>> {
-        let query = json!({ key: { inverter_id.to_string(): Null } });
-        let json_str = self.http.query(&query.to_string()).await?;
-        let value = serde_json::from_str::<serde_json::Value>(&json_str)?
-            .get(key)
+    ) -> Result<Option<i64>> {
+        let value = json_value
+            .get(index)
             .and_then(|v| v.get(inverter_id.to_string()))
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
+            .and_then(|v| v.as_i64());
         Ok(value)
     }
 
-    /// Get the SolarLog device for a specific key and inverter ID, returning the value as an i32 for a specific date.
-    async fn get_inverter_date_value_as_i64(
-        &self,
-        key: &str,
+    /// Extract the value for a specific inverter ID and index as a string.
+    fn extract_inverter_value_as_string<'a>(
+        json_value: &'a Value,
+        index: &str,
         inverter_id: u8,
-        date_str: &str,
+    ) -> Result<Option<&'a str>> {
+        let value = json_value
+            .get(index)
+            .and_then(|v| v.get(inverter_id.to_string()))
+            .and_then(|v| v.as_str());
+        Ok(value)
+    }
+
+    /// Extract the value for a specific inverter ID and id as an i64.
+    fn extract_inverter_value_by_id_as_i64(
+        json_value: &Value,
+        index: &str,
+        inverter_id: u8,
+        id: &str,
     ) -> Result<Option<i64>> {
-        let query = json!({ key: { inverter_id.to_string(): Null } });
-        let json_str = self.http.query(&query.to_string()).await?;
-        let value = serde_json::from_str::<serde_json::Value>(&json_str)?
-            .get(key)
+        let value = json_value
+            .get(index)
             .and_then(|v| v.get(inverter_id.to_string()))
             .and_then(|v| v.as_array())
             .and_then(|arr| {
-                arr.iter().find_map(|entry| {
-                    match (
-                        entry.get(0)?.as_str(),
-                        entry.get(1)?.as_array()?.first()?.as_i64(),
-                    ) {
-                        (Some(date), Some(val)) if date == date_str => Some(val),
-                        _ => None,
-                    }
+                arr.iter().find_map(|element| {
+                    let element_id = element.get(0)?.as_str()?;
+                    let element_value = element.get(1)?.as_array()?.first()?.as_i64()?;
+                    (element_id == id).then_some(element_value)
                 })
             });
         Ok(value)
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_inverter_status_is_shutdown() {
+        let shutdown_statuses = [
+            InverterStatus::ShutdownFault,
+            InverterStatus::ShutdownCommand,
+            InverterStatus::ShutdownOvgr,
+            InverterStatus::ShutdownCommDisconnected,
+            InverterStatus::ShutdownPowerLimit,
+            InverterStatus::ShutdownStartManually,
+            InverterStatus::ShutdownDcSwitchOff,
+        ];
+        for status in shutdown_statuses.iter() {
+            assert!(status.is_shutdown());
+        }
+        let not_shutdown_statuses = [
+            InverterStatus::IdleInitializing,
+            InverterStatus::OnGrid,
+            InverterStatus::SpotCheck,
+        ];
+        for status in not_shutdown_statuses.iter() {
+            assert!(!status.is_shutdown());
+        }
+    }
+
+    #[test]
+    fn test_inverter_status_is_idle() {
+        let idle_statuses = [
+            InverterStatus::IdleInitializing,
+            InverterStatus::IdleDetectingIso,
+            InverterStatus::IdleDetectingIrradiation,
+            InverterStatus::IdleGridDetecting,
+            InverterStatus::IdleNoIrradiation,
+        ];
+        for status in idle_statuses.iter() {
+            assert!(status.is_idle());
+        }
+        let not_idle_statuses = [
+            InverterStatus::OnGrid,
+            InverterStatus::ShutdownFault,
+            InverterStatus::SpotCheck,
+        ];
+        for status in not_idle_statuses.iter() {
+            assert!(!status.is_idle());
+        }
+    }
+
+    #[test]
+    fn test_inverter_status_is_on_grid() {
+        let on_grid_statuses = [
+            InverterStatus::OnGrid,
+            InverterStatus::OnGridPowerLimit,
+            InverterStatus::OnGridSelfDerating,
+        ];
+        for status in on_grid_statuses.iter() {
+            assert!(status.is_on_grid());
+        }
+        let not_on_grid_statuses = [
+            InverterStatus::IdleInitializing,
+            InverterStatus::ShutdownFault,
+            InverterStatus::SpotCheck,
+        ];
+        for status in not_on_grid_statuses.iter() {
+            assert!(!status.is_on_grid());
+        }
+    }
+
+    #[test]
+    fn test_inverter_status_from_str_and_display() {
+        let pairs = [
+            ("Idle Initializing", InverterStatus::IdleInitializing),
+            ("On-grid", InverterStatus::OnGrid),
+            ("Shutdown Fault", InverterStatus::ShutdownFault),
+            ("Spot-check", InverterStatus::SpotCheck),
+            ("AFCI self-check", InverterStatus::AfciSelfCheck),
+        ];
+        for (s, expected) in pairs.iter() {
+            let parsed = InverterStatus::from_str(s).unwrap();
+            assert_eq!(&parsed, expected);
+            assert_eq!(parsed.to_string(), *s);
+        }
+    }
+
+    #[test]
+    fn test_inverter_status_from_str_invalid() {
+        assert!(InverterStatus::from_str("Not a status").is_err());
+    }
+
+    #[test]
+    fn test_client_new() {
+        let url = Url::parse("http://localhost:8080").unwrap();
+        let password = "test_password";
+        Client::new(&url, password);
+    }
+
+    #[test]
+    fn test_create_inverter_query() {
+        let index = "777";
+        let inverter_id = 1u8;
+        let query = Client::create_inverter_query(index, inverter_id);
+        // Should produce a JSON string like: {"777":{"1":null}}
+        let expected =
+            serde_json::json!({ index: { inverter_id.to_string(): serde_json::Value::Null } })
+                .to_string();
+        assert_eq!(query, expected);
+    }
+
+    #[test]
+    fn test_today_string_and_first_day_of_this_month_string() {
+        let today = Client::today_string();
+        let first_day = Client::first_day_of_this_month_string();
+        // Format: dd.mm.yy
+        assert_eq!(today.len(), 8);
+        assert_eq!(first_day.len(), 8);
+        assert!(first_day.starts_with("01."));
+    }
+
+    #[test]
+    fn test_extract_inverter_value_as_i64() {
+        let json = serde_json::json!({"777": {"0": 12345}});
+        let val = Client::extract_inverter_value_as_i64(&json, "777", 0).unwrap();
+        assert_eq!(val, Some(12345));
+        let missing = Client::extract_inverter_value_as_i64(&json, "999", 0).unwrap();
+        assert_eq!(missing, None);
+    }
+
+    #[test]
+    fn test_extract_inverter_value_as_string() {
+        let json = serde_json::json!({"608": {"0": "On-grid"}});
+        let val = Client::extract_inverter_value_as_string(&json, "608", 0).unwrap();
+        assert_eq!(val, Some("On-grid"));
+        let missing = Client::extract_inverter_value_as_string(&json, "999", 0).unwrap();
+        assert_eq!(missing, None);
+    }
+
+    #[test]
+    fn test_extract_energy_for_current_day() {
+        let today = Client::today_string();
+        let json = serde_json::json!({
+            "777": {"0": [[today, [42]]]},
+        });
+        let day = Client::extract_energy_for_current_day(&json).unwrap();
+        assert_eq!(day, Some(42));
+    }
+
+    #[test]
+    fn test_extract_energy_for_current_month() {
+        let first_day = Client::first_day_of_this_month_string();
+        let json = serde_json::json!({
+            "779": {"0": [[first_day, [99]]]},
+        });
+        let month = Client::extract_energy_for_current_month(&json).unwrap();
+        assert_eq!(month, Some(99));
+    }
+
+    #[test]
+    fn test_extract_inverter_status() {
+        // Valid status
+        let json = serde_json::json!({"608": {"0": "On-grid"}});
+        let status = Client::extract_inverter_status(&json).unwrap();
+        assert_eq!(status, Some(InverterStatus::OnGrid));
+
+        // Invalid status string
+        let json = serde_json::json!({"608": {"0": "Not a status"}});
+        let status = Client::extract_inverter_status(&json).unwrap();
+        assert_eq!(status, None);
+
+        // Missing status
+        let json = serde_json::json!({"999": {"0": "On-grid"}});
+        let status = Client::extract_inverter_status(&json).unwrap();
+        assert_eq!(status, None);
     }
 }
