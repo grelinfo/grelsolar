@@ -28,7 +28,7 @@ pub enum ConfigError {
     #[error("Failed to parse URL for environment variable: {0}")]
     UrlParseError(String),
     #[error("Failed to parse duration for environment variable: {0}")]
-    DurationParseError(String),
+    DurationParseError(#[from] humantime::DurationError),
 }
 
 impl Config {
@@ -43,9 +43,9 @@ impl Config {
             solarlog_password: Env::var("SOLARLOG_PASSWORD").as_string()?,
             home_assistant_url: Env::var("HOME_ASSISTANT_URL").as_url()?,
             home_assistant_token: Env::var("HOME_ASSISTANT_TOKEN").as_string()?,
-            solar_power_period: Env::var("SOLAR_POWER_PERIOD_SEC").or("5").as_duration()?,
-            solar_energy_period: Env::var("SOLAR_ENERGY_PERIOD_SEC").or("60").as_duration()?,
-            solar_status_period: Env::var("SOLAR_STATUS_PERIOD_SEC").or("60").as_duration()?,
+            solar_power_period: Env::var("SOLAR_POWER_PERIOD").or("5s").as_duration()?,
+            solar_energy_period: Env::var("SOLAR_ENERGY_PERIOD").or("60s").as_duration()?,
+            solar_status_period: Env::var("SOLAR_STATUS_PERIOD").or("60s").as_duration()?,
         })
     }
 }
@@ -95,9 +95,8 @@ impl Env {
 
     fn as_duration(&self) -> Result<Duration, ConfigError> {
         let value = self.as_string()?;
-        value
-            .parse::<u64>()
-            .map(Duration::from_secs)
-            .map_err(|_| ConfigError::DurationParseError(self.name.clone()))
+        humantime::parse_duration(&value)
+            .map(|d| Duration::from_secs(d.as_secs()))
+            .map_err(ConfigError::DurationParseError)
     }
 }

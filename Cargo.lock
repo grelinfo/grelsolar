@@ -825,6 +825,7 @@ dependencies = [
  "failsafe",
  "http 1.3.1",
  "httpmock",
+ "humantime",
  "log",
  "reqwest",
  "rstest",
@@ -969,6 +970,12 @@ dependencies = [
  "tokio",
  "url",
 ]
+
+[[package]]
+name = "humantime"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b112acc8b3adf4b107a8ec20977da0273a8c386765a3ec0229bd500a1443f9f"
 
 [[package]]
 name = "hyper"
