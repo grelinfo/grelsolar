@@ -145,3 +145,23 @@ impl SolarBridgeBackgroundService {
             .expect("cannot create midnight datetime")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::SolarBridgeBackgroundService;
+    use chrono::{Local, Timelike};
+
+    #[test]
+    fn test_today_midnight_is_midnight() {
+        let midnight = SolarBridgeBackgroundService::today_midnight();
+        let now = Local::now();
+
+        // Should be today
+        assert_eq!(midnight.date_naive(), now.date_naive());
+
+        // Should be at 00:00:00
+        assert_eq!(midnight.hour(), 0);
+        assert_eq!(midnight.minute(), 0);
+        assert_eq!(midnight.second(), 0);
+    }
+}
