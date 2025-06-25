@@ -14,12 +14,12 @@ impl Container {
     /// Creates a new instance of the dependency injection container.
     pub fn new(config: &Config) -> Self {
         let solarlog = Arc::new(solarlog::Client::new(
-            &config.solarlog_url,
-            &config.solarlog_password,
+            config.solarlog_url.to_owned(),
+            config.solarlog_password.to_owned(),
         ));
         let home_assistant = Arc::new(home_assistant::Client::new(
-            &config.home_assistant_url,
-            &config.home_assistant_token,
+            config.home_assistant_url.to_owned(),
+            config.home_assistant_token.to_owned(),
         ));
         let solar_service = Arc::new({
             services::SolarBridgeBackgroundService::new(

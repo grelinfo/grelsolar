@@ -12,7 +12,7 @@ pub struct Client {
 
 impl Client {
     /// Creates a new instance of `Client`.
-    pub fn new(url: &Url, token: &str) -> Self {
+    pub fn new(url: Url, token: String) -> Self {
         let http = HttpClient::new(url, token);
         Client { http }
     }
@@ -102,8 +102,8 @@ mod tests {
     #[tokio::test]
     async fn test_new() {
         let url = Url::parse("http://localhost:8123").unwrap();
-        let token = "test_token";
-        Client::new(&url, token);
+        let token = String::from("test_token");
+        Client::new(url, token);
     }
 
     #[rstest]

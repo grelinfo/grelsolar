@@ -23,15 +23,15 @@ pub struct HttpClient {
 
 impl HttpClient {
     /// Creates a new instance of `HttpClient`.
-    pub fn new(url: &Url, password: &str) -> Self {
+    pub fn new(url: Url, password: String) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_millis(500)) // 0.5 seconds timeout
             .build()
             .expect("Failed to create HTTP client");
         HttpClient {
             client,
-            password: password.to_string(),
-            base_url: url.clone(),
+            password,
+            base_url: url,
             token: RwLock::new(None),
             circuit_breaker: Self::circuit_breaker(),
         }
@@ -309,9 +309,9 @@ mod tests {
 
     #[test]
     fn test_new_http_client() {
-        let url = Url::parse("http://localhost:8080").unwrap();
-        let password = "test_password";
-        let client = HttpClient::new(&url, password);
+        let url = Url::parse("http://localhost:8080").expect("cannot parse URL");
+        let password = String::from("test_password");
+        let client = HttpClient::new(url.clone(), password.clone());
         assert_eq!(client.base_url, url);
         assert_eq!(client.password, password);
     }

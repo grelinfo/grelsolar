@@ -24,15 +24,15 @@ pub struct HttpClient {
 
 impl HttpClient {
     /// Creates a new instance of `HttpClient`.
-    pub fn new(url: &Url, token: &str) -> Self {
+    pub fn new(url: Url, token: String) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_millis(500)) // 0.5 seconds timeout
             .build()
             .expect("Failed to create HTTP client");
         HttpClient {
             client,
-            token: token.to_string(),
-            base_url: url.clone(),
+            token,
+            base_url: url,
             circuit_breaker: Self::circuit_breaker(),
         }
     }

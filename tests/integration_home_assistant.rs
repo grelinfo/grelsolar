@@ -25,7 +25,7 @@ async fn client(token: String, #[future] server: MockServer) -> Client {
         .try_init();
     let server = server.await;
     let url = Url::parse(&server.url("")).unwrap();
-    Client::new(&url, &token)
+    Client::new(url, token)
 }
 
 #[rstest]

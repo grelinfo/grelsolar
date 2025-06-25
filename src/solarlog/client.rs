@@ -2,6 +2,7 @@
 //! This client is the higher level API client for SolarLog.
 use super::http_client::HttpClient;
 use crate::solarlog::Result;
+use chrono::NaiveDate;
 use reqwest::Url;
 use serde_json::Value;
 use serde_json::Value::Null;
@@ -110,7 +111,7 @@ impl InverterStatus {
 
 impl Client {
     /// Creates a new instance of `Client`.
-    pub fn new(url: &Url, password: &str) -> Self {
+    pub fn new(url: Url, password: String) -> Self {
         let inner = HttpClient::new(url, password);
         Client { http: inner }
     }
@@ -142,17 +143,17 @@ impl Client {
     }
 
     /// Get the energy produced or consumed during the current day in watt-hours (Wh).
-    pub async fn get_energy_today(&self) -> Result<Option<i64>> {
+    pub async fn get_energy_of_day(&self, day: NaiveDate) -> Result<Option<i64>> {
         let query = Self::create_inverter_query(DAILY_ENERGY, 0);
         let json_value = self.http.query(&query).await?;
-        Self::extract_energy_for_current_day(&json_value)
+        Self::extract_energy_of_day(&json_value, day)
     }
 
     /// Get the energy produced or consumed during the current month in watt-hours (Wh).
-    pub async fn get_energy_month(&self) -> Result<Option<i64>> {
+    pub async fn get_energy_of_month(&self, month: NaiveDate) -> Result<Option<i64>> {
         let query = Self::create_inverter_query(MONTHLY_ENERGY, 0);
         let json_value = self.http.query(&query).await?;
-        Self::extract_energy_for_current_month(&json_value)
+        Self::extract_energy_of_month(&json_value, month)
     }
 
     /// Get the value for a specific inverter ID and key as a string.
@@ -160,34 +161,16 @@ impl Client {
         json!({ index: { inverter_id.to_string(): Null } }).to_string()
     }
 
-    /// Get the value for a specific inverter ID and key as a string.
-    fn today_string() -> String {
-        chrono::Local::now().format("%d.%m.%y").to_string()
-    }
-
-    /// Get the first day of the current month as a string.
-    fn first_day_of_this_month_string() -> String {
-        chrono::Local::now().format("01.%m.%y").to_string()
-    }
-
     /// Extract the energy for the current day.
-    fn extract_energy_for_current_day(json_value: &Value) -> Result<Option<i64>> {
-        Self::extract_inverter_value_by_id_as_i64(
-            json_value,
-            DAILY_ENERGY,
-            0,
-            &Self::today_string(),
-        )
+    fn extract_energy_of_day(json_value: &Value, day: NaiveDate) -> Result<Option<i64>> {
+        let day_string = day.format("%d.%m.%y").to_string();
+        Self::extract_inverter_value_by_id_as_i64(json_value, DAILY_ENERGY, 0, &day_string)
     }
 
     /// Extract the energy for the current month.
-    fn extract_energy_for_current_month(json_value: &Value) -> Result<Option<i64>> {
-        Self::extract_inverter_value_by_id_as_i64(
-            json_value,
-            MONTHLY_ENERGY,
-            0,
-            &Self::first_day_of_this_month_string(),
-        )
+    fn extract_energy_of_month(json_value: &Value, month: NaiveDate) -> Result<Option<i64>> {
+        let month_string = month.format("01.%m.%y").to_string();
+        Self::extract_inverter_value_by_id_as_i64(json_value, MONTHLY_ENERGY, 0, &month_string)
     }
 
     /// Extract the status of the first inverter as a enum.
@@ -340,8 +323,8 @@ mod tests {
     #[test]
     fn test_client_new() {
         let url = Url::parse("http://localhost:8080").unwrap();
-        let password = "test_password";
-        Client::new(&url, password);
+        let password = String::from("test_password");
+        Client::new(url, password);
     }
 
     #[test]
@@ -354,16 +337,6 @@ mod tests {
             serde_json::json!({ index: { inverter_id.to_string(): serde_json::Value::Null } })
                 .to_string();
         assert_eq!(query, expected);
-    }
-
-    #[test]
-    fn test_today_string_and_first_day_of_this_month_string() {
-        let today = Client::today_string();
-        let first_day = Client::first_day_of_this_month_string();
-        // Format: dd.mm.yy
-        assert_eq!(today.len(), 8);
-        assert_eq!(first_day.len(), 8);
-        assert!(first_day.starts_with("01."));
     }
 
     #[test]
@@ -386,22 +359,58 @@ mod tests {
 
     #[test]
     fn test_extract_energy_for_current_day() {
-        let today = Client::today_string();
-        let json = serde_json::json!({
-            "777": {"0": [[today, [42]]]},
-        });
-        let day = Client::extract_energy_for_current_day(&json).unwrap();
-        assert_eq!(day, Some(42));
+        let day = NaiveDate::from_ymd_opt(2025, 6, 25).expect("Invalid date");
+        let json = serde_json::json!(
+            {
+                    "777": {
+                        "0": [
+                        ["01.06.25", [21700]],
+                        ["02.06.25", [9550]],
+                        ["03.06.25", [23300]],
+                        ["04.06.25", [10790]],
+                        ["05.06.25", [18550]],
+                        ["06.06.25", [16720]],
+                        ["07.06.25", [11040]],
+                        ["08.06.25", [22760]],
+                        ["09.06.25", [27600]],
+                        ["10.06.25", [25550]],
+                        ["11.06.25", [27330]],
+                        ["12.06.25", [27250]],
+                        ["13.06.25", [26890]],
+                        ["14.06.25", [26300]],
+                        ["15.06.25", [20500]],
+                        ["16.06.25", [26360]],
+                        ["17.06.25", [28800]],
+                        ["18.06.25", [27390]],
+                        ["19.06.25", [27540]],
+                        ["20.06.25", [27560]],
+                        ["21.06.25", [18850]],
+                        ["22.06.25", [27870]],
+                        ["23.06.25", [21030]],
+                        ["24.06.25", [28430]],
+                        ["25.06.25", [510]]
+                        ]
+                    }
+                }
+        );
+        let result: Option<i64> =
+            Client::extract_energy_of_day(&json, day).expect("cannot extract energy");
+        assert_eq!(result, Some(510));
     }
 
     #[test]
     fn test_extract_energy_for_current_month() {
-        let first_day = Client::first_day_of_this_month_string();
-        let json = serde_json::json!({
-            "779": {"0": [[first_day, [99]]]},
-        });
-        let month = Client::extract_energy_for_current_month(&json).unwrap();
-        assert_eq!(month, Some(99));
+        let month = NaiveDate::from_ymd_opt(2025, 6, 1).expect("cannot create month date");
+        let json = serde_json::json!(
+            {
+                "779": {
+                    "0": [["01.06.25", [550370]]]
+                }
+            }
+        );
+        let month =
+            Client::extract_energy_of_month(&json, month).expect("cannot extract month energy");
+        assert_eq!(month, Some(550370));
     }
 
     #[test]

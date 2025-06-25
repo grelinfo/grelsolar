@@ -86,7 +86,10 @@ impl SolarBridgeBackgroundService {
                 last_energy_today = None;
             }
 
-            match self.solarlog.get_energy_today().await {
+            let day = today_midnight.date_naive();
+            let energy_today = self.solarlog.get_energy_of_day(day).await;
+
+            match energy_today {
                 Ok(Some(energy_today)) => {
                     if last_energy_today != Some(energy_today) {
                         if let Err(e) = self
