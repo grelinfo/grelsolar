@@ -141,10 +141,7 @@ mod tests {
     }
 
     fn create_json_serialization_error() -> Error {
-        Error::JsonSerializationFailed(serde_json::Error::io(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "fail",
-        )))
+        Error::JsonSerializationFailed(serde_json::Error::io(std::io::Error::other("fail")))
     }
 
     #[test]

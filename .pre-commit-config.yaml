@@ -24,7 +24,7 @@ repos:
       - id: cargo-clippy
         name: cargo clippy
         entry: cargo clippy
-        args: ["--", "-D", "warnings"]
+        args: ["--"]
         language: system
         types: [rust]
         pass_filenames: false

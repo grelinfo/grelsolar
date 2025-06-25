@@ -298,7 +298,7 @@ mod tests {
                 .body(Vec::new())
                 .unwrap(),
         );
-        reqwest::Error::from(response.error_for_status().unwrap_err())
+        response.error_for_status().unwrap_err()
     }
 
     fn create_json_serialization_error() -> Error {
