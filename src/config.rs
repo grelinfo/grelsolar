@@ -37,23 +37,15 @@ impl Config {
         Ok(Self {
             app_name: env!("CARGO_PKG_NAME").to_string(),
             app_version: env!("CARGO_PKG_VERSION").to_string(),
-            app_log: Env::var("APP_LOG").with_default("error").as_string()?,
-            app_log_style: Env::var("APP_LOG_STYLE")
-                .with_default("always")
-                .as_string()?,
+            app_log: Env::var("APP_LOG").or("error").as_string()?,
+            app_log_style: Env::var("APP_LOG_STYLE").or("always").as_string()?,
             solarlog_url: Env::var("SOLARLOG_URL").as_url()?,
             solarlog_password: Env::var("SOLARLOG_PASSWORD").as_string()?,
             home_assistant_url: Env::var("HOME_ASSISTANT_URL").as_url()?,
             home_assistant_token: Env::var("HOME_ASSISTANT_TOKEN").as_string()?,
-            solar_power_period: Env::var("SOLAR_POWER_PERIOD_SEC")
-                .with_default("5")
-                .as_duration()?,
-            solar_energy_period: Env::var("SOLAR_ENERGY_PERIOD_SEC")
-                .with_default("60")
-                .as_duration()?,
-            solar_status_period: Env::var("SOLAR_STATUS_PERIOD_SEC")
-                .with_default("60")
-                .as_duration()?,
+            solar_power_period: Env::var("SOLAR_POWER_PERIOD_SEC").or("5").as_duration()?,
+            solar_energy_period: Env::var("SOLAR_ENERGY_PERIOD_SEC").or("60").as_duration()?,
+            solar_status_period: Env::var("SOLAR_STATUS_PERIOD_SEC").or("60").as_duration()?,
         })
     }
 }
@@ -78,7 +70,7 @@ impl Env {
         }
     }
 
-    fn with_default(self, default: &str) -> Self {
+    fn or(self, default: &str) -> Self {
         Env {
             name: self.name,
             default: Some(default.to_string()),
