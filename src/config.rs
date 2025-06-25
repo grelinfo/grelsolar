@@ -35,19 +35,25 @@ impl Config {
     /// Creates a new `Config` instance by reading environment variables.
     pub fn from_env() -> Result<Self, ConfigError> {
         Ok(Self {
-            // Env var at compile time
             app_name: env!("CARGO_PKG_NAME").to_string(),
             app_version: env!("CARGO_PKG_VERSION").to_string(),
-            // Env var at runtime
-            app_log: string_from_env_with_default("APP_LOG", "error"),
-            app_log_style: string_from_env_with_default("APP_LOG_STYLE", "always"),
-            solarlog_url: url_from_env("SOLARLOG_URL")?,
-            solarlog_password: string_from_env("SOLARLOG_PASSWORD")?,
-            home_assistant_url: url_from_env("HOME_ASSISTANT_URL")?,
-            home_assistant_token: string_from_env("HOME_ASSISTANT_TOKEN")?,
-            solar_power_period: duration_from_env_with_default("SOLAR_POWER_PERIOD_SEC", 5)?,
-            solar_energy_period: duration_from_env_with_default("SOLAR_ENERGY_PERIOD_SEC", 60)?,
-            solar_status_period: duration_from_env_with_default("SOLAR_STATUS_PERIOD_SEC", 60)?,
+            app_log: Env::var("APP_LOG").with_default("error").as_string()?,
+            app_log_style: Env::var("APP_LOG_STYLE")
+                .with_default("always")
+                .as_string()?,
+            solarlog_url: Env::var("SOLARLOG_URL").as_url()?,
+            solarlog_password: Env::var("SOLARLOG_PASSWORD").as_string()?,
+            home_assistant_url: Env::var("HOME_ASSISTANT_URL").as_url()?,
+            home_assistant_token: Env::var("HOME_ASSISTANT_TOKEN").as_string()?,
+            solar_power_period: Env::var("SOLAR_POWER_PERIOD_SEC")
+                .with_default("5")
+                .as_duration()?,
+            solar_energy_period: Env::var("SOLAR_ENERGY_PERIOD_SEC")
+                .with_default("60")
+                .as_duration()?,
+            solar_status_period: Env::var("SOLAR_STATUS_PERIOD_SEC")
+                .with_default("60")
+                .as_duration()?,
         })
     }
 }
@@ -59,28 +65,47 @@ pub fn configure_logger() {
     env_logger::init_from_env(env);
 }
 
-fn string_from_env_with_default(name: &str, default: &str) -> String {
-    env::var(name).unwrap_or_else(|_| default.to_string())
+struct Env {
+    name: String,
+    default: Option<String>,
 }
 
-fn string_from_env(name: &str) -> Result<String, ConfigError> {
-    let value = env::var(name).map_err(|_| ConfigError::EnvVarNotFoundError(name.to_string()))?;
-    if value.trim().is_empty() {
-        Err(ConfigError::EnvVarNotFoundError(name.to_string()))
-    } else {
-        Ok(value)
+impl Env {
+    fn var(name: &str) -> Self {
+        Env {
+            name: name.to_string(),
+            default: None,
+        }
     }
-}
 
-fn url_from_env(name: &str) -> Result<Url, ConfigError> {
-    let value = string_from_env(name)?;
-    Url::parse(&value).map_err(|_| ConfigError::UrlParseError(name.to_string()))
-}
+    fn with_default(self, default: &str) -> Self {
+        Env {
+            name: self.name,
+            default: Some(default.to_string()),
+        }
+    }
 
-fn duration_from_env_with_default(name: &str, default: i64) -> Result<Duration, ConfigError> {
-    env::var(name)
-        .unwrap_or_else(|_| default.to_string())
-        .parse::<u64>()
-        .map(Duration::from_secs)
-        .map_err(|_| ConfigError::DurationParseError(name.to_string()))
+    fn as_string(&self) -> Result<String, ConfigError> {
+        match env::var(&self.name) {
+            Ok(value) if !value.trim().is_empty() => Ok(value),
+            Ok(_) => Err(ConfigError::EnvVarNotFoundError(self.name.clone())),
+            Err(_) => match &self.default {
+                Some(default_value) => Ok(default_value.clone()),
+                None => Err(ConfigError::EnvVarNotFoundError(self.name.clone())),
+            },
+        }
+    }
+
+    fn as_url(&self) -> Result<Url, ConfigError> {
+        let value = self.as_string()?;
+        Url::parse(&value).map_err(|_| ConfigError::UrlParseError(self.name.clone()))
+    }
+
+    fn as_duration(&self) -> Result<Duration, ConfigError> {
+        let value = self.as_string()?;
+        value
+            .parse::<u64>()
+            .map(Duration::from_secs)
+            .map_err(|_| ConfigError::DurationParseError(self.name.clone()))
+    }
 }
