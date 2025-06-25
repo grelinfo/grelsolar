@@ -1,5 +1,6 @@
 //! Home Assistant HTTP client.
 //! This is the lower level client for Home Assistant devices.
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
 use failsafe::{
     backoff::{self, Constant},
@@ -123,7 +124,9 @@ impl HttpClient {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
+
     use super::*;
     use reqwest::StatusCode;
 
