@@ -188,10 +188,9 @@ impl Client {
         index: &str,
         inverter_id: u8,
     ) -> Result<Option<i64>> {
-        let value = json_value
-            .get(index)
-            .and_then(|v| v.get(inverter_id.to_string()))
-            .and_then(|v| v.as_i64());
+        let value = json_value[index][inverter_id.to_string()]
+            .as_str()
+            .and_then(|s| s.parse::<i64>().ok());
         Ok(value)
     }
 
@@ -341,7 +340,7 @@ mod tests {
 
     #[test]
     fn test_extract_inverter_value_as_i64() {
-        let json = serde_json::json!({"777": {"0": 12345}});
+        let json = serde_json::json!({"777": {"0": "12345"}});
         let val = Client::extract_inverter_value_as_i64(&json, "777", 0).unwrap();
         assert_eq!(val, Some(12345));
         let missing = Client::extract_inverter_value_as_i64(&json, "999", 0).unwrap();

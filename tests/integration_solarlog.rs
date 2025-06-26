@@ -84,7 +84,7 @@ async fn test_get_current_power(#[future] client: Client, #[future] server: Mock
                     "SolarLog=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=",
                 )
                 .body(r#"token=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=;{"782":{"0":null}}"#);
-            then.status(200).body(r#"{"782":{"0":1234}}"#);
+            then.status(200).body(r#"{"782":{"0":"1234"}}"#);
         })
         .await;
     let power = client.get_current_power().await;
