@@ -21,7 +21,7 @@ static MONTHLY_ENERGY: &str = "779";
 static STATUS: &str = "608";
 
 /// Solar-Log inverter status.
-#[derive(Debug, PartialEq, EnumString, Display)]
+#[derive(Debug, PartialEq, EnumString, Display, Clone)]
 pub enum InverterStatus {
     #[strum(serialize = "Idle Initializing")]
     IdleInitializing,

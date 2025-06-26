@@ -1,7 +1,7 @@
 //! Solar Bridge Background Service.
 //! This service bridges SolarLog and Home Assistant, enabling automatic synchronization of solar production data between the two systems.
 
-use chrono::{DateTime, TimeZone};
+use chrono::{DateTime, NaiveDate};
 use std::sync::Arc;
 use tokio::time::{Duration, interval};
 
@@ -36,9 +36,9 @@ impl SolarBridgeBackgroundService {
     /// Run the background service to synchronize data between SolarLog and Home Assistant.
     pub async fn run(&self) {
         tokio::join!(
-            self.sync_solar_power(self.power_period),
-            self.sync_solar_energy(self.energy_period),
-            self.sync_solar_status(self.status_period)
+            self.sync_solar_power_task(self.power_period),
+            self.sync_solar_energy_task(self.energy_period),
+            self.sync_solar_status_task(self.status_period)
         );
     }
 
@@ -46,25 +46,13 @@ impl SolarBridgeBackgroundService {
     /// This method runs in a loop, polling the SolarLog API at the specified interval.
     /// # Arguments
     /// * `period` - The interval at which to poll SolarLog for current power data.
-    async fn sync_solar_power(&self, period: Duration) {
+    async fn sync_solar_power_task(&self, period: Duration) {
         let mut last_power = None;
         let mut interval = interval(period);
 
         loop {
             interval.tick().await;
-            match self.solarlog.get_current_power().await {
-                Ok(Some(power)) if last_power != Some(power) => {
-                    if let Err(e) = self.home_assistant.set_solar_current_power(power).await {
-                        log::error!("Failed to update current power in Home Assistant: {e}");
-                    } else {
-                        last_power = Some(power);
-                        log::debug!("Updated current power in Home Assistant: {power} W");
-                    }
-                }
-                Ok(Some(_)) => {}
-                Ok(None) => log::warn!("No current power data available from SolarLog"),
-                Err(e) => log::error!("Error retrieving current power from SolarLog: {e}"),
-            }
+            last_power = self.sync_solar_power(last_power).await;
         }
     }
 
@@ -72,40 +60,19 @@ impl SolarBridgeBackgroundService {
     /// This method runs in a loop, polling the SolarLog API at the specified interval.
     /// # Arguments
     /// * `period` - The interval at which to poll SolarLog for inverter status data.
-    async fn sync_solar_energy(&self, period: Duration) {
+    async fn sync_solar_energy_task(&self, period: Duration) {
         let mut last_energy_today = None;
+        let mut last_day = chrono::Local::now().date_naive();
         let mut interval = interval(period);
-        let mut today_midnight = Self::today_midnight();
 
         loop {
             interval.tick().await;
-
-            let now = Self::today_midnight();
-            if now != today_midnight {
-                today_midnight = now;
-                last_energy_today = None;
+            let day = chrono::Local::now().date_naive();
+            if day != last_day {
+                last_day = day;
+                last_energy_today = None; // Reset energy for a new day
             }
-
-            let day = today_midnight.date_naive();
-            let energy_today = self.solarlog.get_energy_of_day(day).await;
-
-            match energy_today {
-                Ok(Some(energy_today)) => {
-                    if last_energy_today != Some(energy_today) {
-                        if let Err(e) = self
-                            .home_assistant
-                            .set_solar_energy(energy_today, &today_midnight)
-                            .await
-                        {
-                            log::error!("Failed to update energy today in Home Assistant: {e}");
-                        }
-                        last_energy_today = Some(energy_today);
-                        log::debug!("Updated energy today in Home Assistant: {energy_today} Wh");
-                    }
-                }
-                Ok(None) => log::warn!("No energy today data available from SolarLog"),
-                Err(e) => log::error!("Error retrieving energy today from SolarLog: {e}"),
-            }
+            last_energy_today = self.sync_solar_energy(day, last_energy_today).await;
         }
     }
 
@@ -113,36 +80,101 @@ impl SolarBridgeBackgroundService {
     /// This method runs in a loop, polling the SolarLog API at the specified interval.
     /// # Arguments
     /// * `period` - The interval at which to poll SolarLog for inverter status data.
-    async fn sync_solar_status(&self, period: Duration) {
+    async fn sync_solar_status_task(&self, period: Duration) {
         let mut last_status = None;
         let mut interval = interval(period);
         loop {
             interval.tick().await;
+            last_status = self.sync_solar_status(last_status).await;
+        }
+    }
 
-            match self.solarlog.get_status().await {
-                Ok(Some(status)) => {
-                    if last_status.as_ref() != Some(&status) {
-                        let status_str = status.to_string();
-                        if let Err(e) = self.home_assistant.set_solar_status(&status_str).await {
-                            log::error!("Failed to update inverter status in Home Assistant: {e}");
-                        } else {
-                            last_status = Some(status);
-                            log::debug!("Updated inverter status in Home Assistant: {status_str}");
-                        }
-                    }
+    /// Synchronizes the current solar power with Home Assistant.
+    async fn sync_solar_power(&self, last_power: Option<i64>) -> Option<i64> {
+        match self.solarlog.get_current_power().await {
+            Ok(Some(power)) if last_power != Some(power) => {
+                if let Err(e) = self.home_assistant.set_solar_current_power(power).await {
+                    log::error!("Cannot update current power in Home Assistant: {e}");
+                } else {
+                    log::debug!("Current power updated in Home Assistant: {power} W");
                 }
-                Ok(None) => log::warn!("No inverter status data available from SolarLog"),
-                Err(e) => log::error!("Error retrieving inverter status from SolarLog: {e}"),
+                Some(power)
+            }
+            Ok(Some(_)) => last_power,
+            Ok(None) => {
+                log::warn!("Cannot retrieve current power from SolarLog");
+                last_power
+            }
+            Err(e) => {
+                log::error!("Cannot retrieve current power from SolarLog: {e}");
+                last_power
             }
         }
     }
 
-    fn today_midnight() -> DateTime<chrono::Local> {
-        chrono::Local::now()
-            .date_naive()
-            .and_hms_opt(0, 0, 0)
-            .and_then(|midnight| chrono::Local.from_local_datetime(&midnight).single())
-            .expect("cannot create midnight datetime")
+    /// Synchronizes the solar energy produced today with Home Assistant.
+    async fn sync_solar_energy(
+        &self,
+        day: NaiveDate,
+        last_energy_today: Option<i64>,
+    ) -> Option<i64> {
+        match self.solarlog.get_energy_of_day(day).await {
+            Ok(Some(energy_today)) if last_energy_today != Some(energy_today) => {
+                let day_midnight = Self::day_midnight(&day);
+                if let Err(e) = self
+                    .home_assistant
+                    .set_solar_energy(energy_today, &day_midnight)
+                    .await
+                {
+                    log::error!("Cannot update energy today in Home Assistant: {e}");
+                } else {
+                    log::debug!("Energy today updated in Home Assistant: {energy_today} Wh");
+                }
+                Some(energy_today)
+            }
+            Ok(Some(_)) => last_energy_today,
+            Ok(None) => {
+                log::warn!("Cannot retrieve energy today from SolarLog");
+                last_energy_today
+            }
+            Err(e) => {
+                log::error!("Cannot retrieve energy today from SolarLog: {e}");
+                last_energy_today
+            }
+        }
+    }
+
+    /// Synchronizes the SolarLog device status with Home Assistant.
+    async fn sync_solar_status(
+        &self,
+        last_status: Option<solarlog::InverterStatus>,
+    ) -> Option<solarlog::InverterStatus> {
+        match self.solarlog.get_status().await {
+            Ok(Some(status)) if last_status.as_ref() != Some(&status) => {
+                let status_str = status.to_string();
+                if let Err(e) = self.home_assistant.set_solar_status(&status_str).await {
+                    log::error!("Cannot update inverter status in Home Assistant: {e}");
+                } else {
+                    log::debug!("Inverter status updated in Home Assistant: {status_str}");
+                }
+                Some(status)
+            }
+            Ok(Some(_)) => last_status,
+            Ok(None) => {
+                log::warn!("Cannot retrieve inverter status from SolarLog");
+                last_status
+            }
+            Err(e) => {
+                log::error!("Cannot retrieve inverter status from SolarLog: {e}");
+                last_status
+            }
+        }
+    }
+
+    fn day_midnight(day: &NaiveDate) -> DateTime<chrono::Local> {
+        day.and_hms_opt(0, 0, 0)
+            .and_then(|d| d.and_local_timezone(chrono::Local).single())
+            .expect("cannot create midnight time")
     }
 }
 
@@ -153,7 +185,8 @@ mod tests {
 
     #[test]
     fn test_today_midnight_is_midnight() {
-        let midnight = SolarBridgeBackgroundService::today_midnight();
+        let today = Local::now().date_naive();
+        let midnight = SolarBridgeBackgroundService::day_midnight(&today);
         let now = Local::now();
 
         // Should be today
