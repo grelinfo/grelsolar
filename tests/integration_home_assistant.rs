@@ -1,87 +1,46 @@
 //! Integration tests for the Home Assistant client.
+use crate::mockserver_home_assistant::HomeAssistantMockServer;
+mod mockserver_home_assistant;
+
 use chrono::TimeZone;
 use grelsolar::home_assistant::Client;
 use grelsolar::home_assistant::Error;
-use httpmock::{Method::POST, MockServer};
-use reqwest::Url;
+use rstest::fixture;
 use rstest::*;
-use serde_json::json;
 
 #[fixture]
-fn token() -> String {
-    "test_token".to_string()
-}
-
-#[fixture]
-async fn server() -> MockServer {
-    MockServer::start_async().await
-}
-
-#[fixture]
-async fn client(token: String, #[future] server: MockServer) -> Client {
+/// Combined fixture yielding a client and its HomeAssistantMockServer
+async fn client_server() -> (Client, HomeAssistantMockServer) {
     let _ = env_logger::builder()
         .is_test(true)
         .filter_level(log::LevelFilter::Debug)
         .try_init();
-    let server = server.await;
-    let url = Url::parse(&server.url("")).unwrap();
-    Client::new(url, token)
+    let server = HomeAssistantMockServer::start().await;
+    let url = server.url();
+    let token = server.token().to_string();
+    let client = Client::new(url, token);
+    (client, server)
 }
 
 #[rstest]
 #[tokio::test]
-async fn test_client_set_solar_energy(
-    token: String,
-    #[future] client: Client,
-    #[future] server: MockServer,
-) {
+async fn test_client_set_solar_energy(#[future] client_server: (Client, HomeAssistantMockServer)) {
+    let (client, server) = client_server.await;
     let energy_today = 1280;
-    let last_reset = chrono::Utc.with_ymd_and_hms(2025, 6, 23, 0, 0, 0).unwrap();
-    let client = client.await;
-    let server = server.await;
+    let last_reset = chrono::Utc
+        .with_ymd_and_hms(2025, 6, 23, 0, 0, 0)
+        .unwrap()
+        .to_rfc3339();
     let mock = server
-        .mock_async(|when, then| {
-            when.method(POST)
-                .path("/api/states/sensor.solar_energy")
-                .header("Authorization", format!("Bearer {}", token))
-                .header("Content-Type", "application/json")
-                .json_body(json!({
-                    "state": "1.28",
-                    "attributes": {
-                        "device_class": "energy",
-                        "state_class": "total_increasing",
-                        "last_reset": "2025-06-23T00:00:00+00:00",
-                        "friendly_name": "Solar Energy",
-                        "unit_of_measurement": "kWh"
-                    }
-                }));
-            then.status(200)
-                .header("content-type", "application/json")
-                .json_body(json!(
-                    {
-                        "entity_id": "sensor.solar_energy",
-                        "state": "1.28",
-                        "attributes": {
-                            "friendly_name": "Solar Energy",
-                            "unit_of_measurement": "kWh",
-                            "last_reset": "2025-06-23T00:00:00+00:00",
-                            "device_class": "energy",
-                            "state_class": "total_increasing"
-                        },
-                        "last_changed": "2025-06-23T06:15:37.912667+00:00",
-                        "last_reported": "2025-06-23T06:15:37.912667+00:00",
-                        "last_updated": "2025-06-23T06:15:37.912667+00:00",
-                        "context": {
-                            "id": "X7TQ47E2AGDK5CWNR3VPYDJP01",
-                            "parent_id": null,
-                            "user_id": "b7c2e6d3f124c9e5f763a9821576c30"
-                        }
-                    }
-                ));
-        })
+        .mock_set_solar_energy((energy_today as f64) / 1000.0, &last_reset)
         .await;
 
-    let result = client.set_solar_energy(energy_today, &last_reset).await;
+    let result = client
+        .set_solar_energy(
+            energy_today,
+            &chrono::DateTime::parse_from_rfc3339(&last_reset).unwrap(),
+        )
+        .await;
 
     mock.assert_async().await;
     assert!(result.is_ok());
@@ -90,50 +49,11 @@ async fn test_client_set_solar_energy(
 #[rstest]
 #[tokio::test]
 async fn test_client_set_solar_current_power(
-    token: String,
-    #[future] client: Client,
-    #[future] server: MockServer,
+    #[future] client_server: (Client, HomeAssistantMockServer),
 ) {
+    let (client, server) = client_server.await;
     let power = 701;
-    let client = client.await;
-    let server = server.await;
-    let mock = server
-        .mock_async(|when, then| {
-            when.method(POST)
-                .path("/api/states/sensor.solar_power")
-                .header("Authorization", format!("Bearer {}", token))
-                .header("Content-Type", "application/json")
-                .json_body(json!({
-                    "state": "701",
-                    "attributes": {
-                        "unit_of_measurement": "W",
-                        "friendly_name": "Solar Power",
-                        "state_class": "measurement"
-                    }
-                }));
-            then.status(200)
-                .header("content-type", "application/json")
-                .json_body(json!(
-                    {
-                        "entity_id": "sensor.solar_power",
-                        "state": "701",
-                        "attributes": {
-                            "unit_of_measurement": "W",
-                            "state_class": "measurement",
-                            "friendly_name": "Solar Power"
-                        },
-                        "last_changed": "2025-06-23T06:22:32.877327+00:00",
-                        "last_reported": "2025-06-23T06:22:32.877327+00:00",
-                        "last_updated": "2025-06-23T06:22:32.877327+00:00",
-                        "context": {
-                            "id": "X7TQ47E2AGDK5CWNR3VPYDJP01",
-                            "parent_id": null,
-                            "user_id": "b7c2e6d3f124c9e5f763a9821576c30"
-                        }
-                    }
-                ));
-        })
-        .await;
+    let mock = server.mock_set_solar_power(power).await;
 
     let result = client.set_solar_current_power(power).await;
 
@@ -143,47 +63,10 @@ async fn test_client_set_solar_current_power(
 
 #[rstest]
 #[tokio::test]
-async fn test_client_set_solar_status(
-    token: String,
-    #[future] client: Client,
-    #[future] server: MockServer,
-) {
+async fn test_client_set_solar_status(#[future] client_server: (Client, HomeAssistantMockServer)) {
+    let (client, server) = client_server.await;
     let status = "On-grid";
-    let client = client.await;
-    let server = server.await;
-    let mock = server
-        .mock_async(|when, then| {
-            when.method(POST)
-                .path("/api/states/sensor.solar_status")
-                .header("Authorization", format!("Bearer {}", token))
-                .header("Content-Type", "application/json")
-                .json_body(json!({
-                    "state": "On-grid",
-                    "attributes": {
-                        "friendly_name": "Solar Status",
-                    }
-                }));
-            then.status(200)
-                .header("content-type", "application/json")
-                .json_body(json!(
-                    {
-                        "entity_id": "sensor.solar_status",
-                        "state": "On-grid",
-                        "attributes": {
-                            "friendly_name": "Solar Status",
-                        },
-                        "last_changed": "2025-06-23T04:07:37.906287+00:00",
-                        "last_reported": "2025-06-23T04:07:37.906287+00:00",
-                        "last_updated": "2025-06-23T04:07:37.906287+00:00",
-                        "context": {
-                            "id": "X7TQ47E2AGDK5CWNR3VPYDJP01",
-                            "parent_id": null,
-                            "user_id": "b7c2e6d3f124c9e5f763a9821576c30"
-                        }
-                    }
-                ));
-        })
-        .await;
+    let mock = server.mock_set_solar_status(status).await;
 
     let result = client.set_solar_status(status).await;
 
@@ -194,21 +77,10 @@ async fn test_client_set_solar_status(
 #[rstest]
 #[tokio::test]
 async fn test_client_reliability_server_error(
-    token: String,
-    #[future] client: Client,
-    #[future] server: MockServer,
+    #[future] client_server: (Client, HomeAssistantMockServer),
 ) {
-    let client = client.await;
-    let server = server.await;
-    let mock = server
-        .mock_async(|when, then| {
-            when.method(POST)
-                .path("/api/states/sensor.solar_power")
-                .header("Authorization", format!("Bearer {}", token))
-                .header("Content-Type", "application/json");
-            then.status(500).header("content-type", "application/json");
-        })
-        .await;
+    let (client, server) = client_server.await;
+    let mock = server.mock_error_solar_power().await;
 
     let result_call_1 = client.set_solar_current_power(1234).await;
     let result_call_2 = client.set_solar_current_power(1234).await;
