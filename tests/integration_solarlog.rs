@@ -1,208 +1,123 @@
 //! Integration tests for the SolarLog client.
-use chrono::NaiveDate;
 use grelsolar::solarlog::{Client, InverterStatus};
-use httpmock::{Mock, prelude::*};
-use reqwest::Url;
-use rstest::*;
+use rstest::{fixture, rstest};
+
+use crate::mockserver_solarlog::SolarlogMockServer;
+
+mod mockserver_solarlog;
 
 #[fixture]
-async fn server() -> MockServer {
-    MockServer::start_async().await
+/// Combined fixture yielding both a new client and its mock server
+async fn client_server() -> (Client, SolarlogMockServer) {
+    let _ = env_logger::builder().is_test(true).try_init();
+    let server = SolarlogMockServer::start().await;
+    let client = Client::new(server.url(), server.password().to_string());
+    (client, server)
 }
 
 #[fixture]
-async fn client(#[future] server: MockServer) -> Client {
-    let server = server.await;
-    let url = Url::parse(&server.url("/")).unwrap();
-    Client::new(url, String::from("password"))
-}
-
-async fn mock_login<'a>(server: &'a MockServer) -> Mock<'a> {
-    server
-        .mock_async(|when, then| {
-            when.method(POST)
-                .path("/login")
-                .header("content-type", "application/x-www-form-urlencoded")
-                .body("u=user&p=password");
-            then.status(200)
-                .header(
-                    "set-cookie",
-                    "SolarLog=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=",
-                )
-                .header("content-type", "text/html")
-                .body("SUCCESS - Password was correct, you are now logged in");
-        })
-        .await
+/// Combined fixture yielding a logged-in client and its mock server
+async fn client_server_logged() -> (Client, SolarlogMockServer) {
+    let _ = env_logger::builder().is_test(true).try_init();
+    let server = SolarlogMockServer::start().await;
+    let client = Client::new(server.url(), server.password().to_string());
+    // perform login in fixture
+    let _login_mock = server.mock_login_success().await;
+    client.login().await.expect("login failed in fixture");
+    (client, server)
 }
 
 #[rstest]
 #[tokio::test]
-async fn test_login(#[future] client: Client, #[future] server: MockServer) {
-    let client = client.await;
-    let server = server.await;
-    let mock = mock_login(&server).await;
+async fn test_login_success(#[future] client_server: (Client, SolarlogMockServer)) {
+    let (client, server) = client_server.await;
+
+    let mock = server.mock_login_success().await;
+
     let result = client.login().await;
+
     mock.assert_async().await;
     assert!(result.is_ok());
 }
 
 #[rstest]
 #[tokio::test]
-async fn test_logout(#[future] client: Client, #[future] server: MockServer) {
-    let client = client.await;
-    let server = server.await;
-    mock_login(&server).await;
-    let mock = server
-        .mock_async(|when, then| {
-            when.method(POST).path("/logout").header(
-                "cookie",
-                "SolarLog=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=",
-            );
-            then.status(200)
-                .header("set-cookie", "SolarLog=")
-                .header("content-type", "text/html")
-                .body("SUCESS - You are now logged out."); // Typos in solarLog API responses
-        })
-        .await;
-    client.login().await.unwrap();
-    client.logout().await;
+async fn test_login_failure(#[future] client_server: (Client, SolarlogMockServer)) {
+    let (client, server) = client_server.await;
+
+    let mock = server.mock_login_failure().await;
+
+    let result = client.login().await;
+
+    mock.assert_async().await;
+    assert!(matches!(
+        result,
+        Err(grelsolar::solarlog::Error::WrongPassword)
+    ));
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_logout(#[future] client_server_logged: (Client, SolarlogMockServer)) {
+    let (client, server) = client_server_logged.await;
+    let mock = server.mock_logout_success().await;
+
+    let result = client.logout().await;
+
+    assert!(result, "Logout should be successful");
     mock.assert_async().await;
 }
 
 #[rstest]
 #[tokio::test]
-async fn test_get_current_power(#[future] client: Client, #[future] server: MockServer) {
-    let client = client.await;
-    let server = server.await;
-    mock_login(&server).await;
-    let mock = server
-        .mock_async(|when, then| {
-            when.method(POST)
-                .path("/getjp")
-                .header(
-                    "cookie",
-                    "SolarLog=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=",
-                )
-                .body(r#"token=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=;{"782":{"0":null}}"#);
-            then.status(200).body(r#"{"782":{"0":"1234"}}"#);
-        })
-        .await;
+async fn test_get_current_power(#[future] client_server_logged: (Client, SolarlogMockServer)) {
+    let (client, server) = client_server_logged.await;
+    let (mock, expected) = server.mock_current_power().await;
+
     let power = client.get_current_power().await;
+
     mock.assert_async().await;
-    assert_eq!(power.unwrap(), Some(1234));
+    assert_eq!(power.expect("failed to get current power"), Some(expected));
 }
 
 #[rstest]
 #[tokio::test]
-async fn test_get_status(#[future] client: Client, #[future] server: MockServer) {
-    let client = client.await;
-    let server = server.await;
-    mock_login(&server).await;
-    let mock = server
-        .mock_async(|when, then| {
-            when.method(POST)
-                .path("/getjp")
-                .header(
-                    "cookie",
-                    "SolarLog=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=",
-                )
-                .body(r#"token=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=;{"608":{"0":null}}"#);
-            then.status(200).body(r#"{"608":{"0":"On-grid"}}"#);
-        })
-        .await;
-    let status = client.get_status().await.unwrap();
+async fn test_get_status(#[future] client_server_logged: (Client, SolarlogMockServer)) {
+    let (client, server) = client_server_logged.await;
+    let (mock, _expected) = server.mock_query_status().await;
+
+    let status = client.get_status().await;
+
     mock.assert_async().await;
-    assert_eq!(status, Some(InverterStatus::OnGrid));
+    assert!(matches!(status, Ok(Some(InverterStatus::OnGrid))));
 }
 
 #[rstest]
 #[tokio::test]
-async fn test_get_energy_today(#[future] client: Client, #[future] server: MockServer) {
-    let client = client.await;
-    let server = server.await;
-    let day = NaiveDate::from_ymd_opt(2025, 6, 25).expect("cannot create day date");
-    mock_login(&server).await;
-    let mock = server
-        .mock_async(move |when, then| {
-            when.method(POST)
-                .path("/getjp")
-                .header(
-                    "cookie",
-                    "SolarLog=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=",
-                )
-                .body(r#"token=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=;{"777":{"0":null}}"#);
-            then.status(200).json_body(serde_json::json!(
-                {
-                    "777": {
-                        "0": [
-                        ["01.06.25", [21700]],
-                        ["02.06.25", [9550]],
-                        ["03.06.25", [23300]],
-                        ["04.06.25", [10790]],
-                        ["05.06.25", [18550]],
-                        ["06.06.25", [16720]],
-                        ["07.06.25", [11040]],
-                        ["08.06.25", [22760]],
-                        ["09.06.25", [27600]],
-                        ["10.06.25", [25550]],
-                        ["11.06.25", [27330]],
-                        ["12.06.25", [27250]],
-                        ["13.06.25", [26890]],
-                        ["14.06.25", [26300]],
-                        ["15.06.25", [20500]],
-                        ["16.06.25", [26360]],
-                        ["17.06.25", [28800]],
-                        ["18.06.25", [27390]],
-                        ["19.06.25", [27540]],
-                        ["20.06.25", [27560]],
-                        ["21.06.25", [18850]],
-                        ["22.06.25", [27870]],
-                        ["23.06.25", [21030]],
-                        ["24.06.25", [28430]],
-                        ["25.06.25", [510]]
-                        ]
-                    }
-                }
-            ));
-        })
-        .await;
-    let energy = client
-        .get_energy_of_day(day)
-        .await
-        .expect("cannot get energy");
+async fn test_get_energy_of_day(#[future] client_server_logged: (Client, SolarlogMockServer)) {
+    let (client, server) = client_server_logged.await;
+    let (mock, day, expected) = server.mock_energy_daily().await;
+
+    let energy = client.get_energy_of_day(day).await;
+
     mock.assert_async().await;
-    assert_eq!(energy, Some(510));
+    assert_eq!(
+        energy.expect("failed to get energy of month"),
+        Some(expected)
+    );
 }
 
 #[rstest]
 #[tokio::test]
-async fn test_get_energy_month(#[future] client: Client, #[future] server: MockServer) {
-    let client = client.await;
-    let server = server.await;
-    let month = NaiveDate::from_ymd_opt(2025, 6, 1).expect("cannot create month date");
-    mock_login(&server).await;
-    let mock = server
-        .mock_async(move |when, then| {
-            when.method(POST)
-                .path("/getjp")
-                .header(
-                    "cookie",
-                    "SolarLog=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=",
-                )
-                .body(r#"token=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=;{"779":{"0":null}}"#);
-            then.status(200).json_body(serde_json::json!(
-                {
-                    "779": {
-                        "0": [["01.06.25", [550370]]]
-                    }
-                }
-            ));
-        })
-        .await;
-    let energy = client
-        .get_energy_of_month(month)
-        .await
-        .expect("cannot get energy");
+async fn test_get_energy_of_month(#[future] client_server_logged: (Client, SolarlogMockServer)) {
+    let (client, server) = client_server_logged.await;
+    let (mock, month, expected) = server.mock_energy_monhtly().await;
+
+    let energy = client.get_energy_of_month(month).await;
+
     mock.assert_async().await;
-    assert_eq!(energy, Some(550370));
+    assert_eq!(
+        energy.expect("failed to get energy of month"),
+        Some(expected)
+    );
 }

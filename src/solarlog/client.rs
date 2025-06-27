@@ -123,9 +123,14 @@ impl Client {
         Ok(())
     }
 
+    pub async fn is_logged_in(&self) -> bool {
+        self.http.is_logged_in().await
+    }
+
     /// Logout from SolarLog device.
-    pub async fn logout(&self) {
-        self.http.logout().await;
+    /// Return `true` if logout was successful, `false` otherwise.
+    pub async fn logout(&self) -> bool {
+        self.http.logout().await
     }
 
     /// Get the power produced or consumed in Watt (W).

@@ -69,16 +69,20 @@ impl HttpClient {
     /// This method clears the authentication token and sends a logout request to the device.
     /// The logout request is performed only once, without retries or circuit breaker protection.
     /// If the logout request fails, the error is logged as a warning, but no error is returned to the caller.
-    pub async fn logout(&self) {
+    /// Returns `true` if logout was successful, `false` otherwise.
+    pub async fn logout(&self) -> bool {
         let mut token_lock = self.token.write().await;
         if let Some(token) = token_lock.take() {
             if let Err(err) = self.request_logout(&token).await {
                 log::warn!("Failed to logout: {}", err);
+                return false;
             } else {
                 log::debug!("Logout successful");
+                return true;
             }
         } else {
             log::debug!("No token to logout");
+            return false;
         }
     }
 
@@ -196,7 +200,7 @@ impl HttpClient {
             .expect("cannot build logout URL");
         self.client
             .post(url)
-            .header("Cookie", format!("SolarLog={token}"))
+            .header("cookie", format!("SolarLog={token}"))
             .send()
             .await?
             .error_for_status()
@@ -216,7 +220,7 @@ impl HttpClient {
         let response = self
             .client
             .post(url)
-            .header("Cookie", format!("SolarLog={token}"))
+            .header("cookie", format!("SolarLog={token}"))
             .body(body)
             .send()
             .await?
