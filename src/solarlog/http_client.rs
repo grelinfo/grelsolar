@@ -75,14 +75,14 @@ impl HttpClient {
         if let Some(token) = token_lock.take() {
             if let Err(err) = self.request_logout(&token).await {
                 log::warn!("Failed to logout: {}", err);
-                return false;
+                false
             } else {
                 log::debug!("Logout successful");
-                return true;
+                true
             }
         } else {
             log::debug!("No token to logout");
-            return false;
+            false
         }
     }
 

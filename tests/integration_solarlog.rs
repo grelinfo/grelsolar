@@ -77,7 +77,7 @@ async fn test_get_current_power(#[future] client_server_logged: (Client, Solarlo
     let power = client.get_current_power().await;
 
     mock.assert_async().await;
-    assert_eq!(power.expect("failed to get current power"), Some(expected));
+    assert_eq!(power.expect("failed to get current power"), expected);
 }
 
 #[rstest]
@@ -89,7 +89,7 @@ async fn test_get_status(#[future] client_server_logged: (Client, SolarlogMockSe
     let status = client.get_status().await;
 
     mock.assert_async().await;
-    assert!(matches!(status, Ok(Some(InverterStatus::OnGrid))));
+    assert!(matches!(status, Ok(InverterStatus::OnGrid)));
 }
 
 #[rstest]
@@ -101,10 +101,7 @@ async fn test_get_energy_of_day(#[future] client_server_logged: (Client, Solarlo
     let energy = client.get_energy_of_day(day).await;
 
     mock.assert_async().await;
-    assert_eq!(
-        energy.expect("failed to get energy of month"),
-        Some(expected)
-    );
+    assert_eq!(energy.expect("failed to get energy of month"), expected);
 }
 
 #[rstest]
@@ -116,8 +113,5 @@ async fn test_get_energy_of_month(#[future] client_server_logged: (Client, Solar
     let energy = client.get_energy_of_month(month).await;
 
     mock.assert_async().await;
-    assert_eq!(
-        energy.expect("failed to get energy of month"),
-        Some(expected)
-    );
+    assert_eq!(energy.expect("failed to get energy of month"), expected);
 }

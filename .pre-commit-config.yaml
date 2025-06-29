@@ -23,11 +23,10 @@ repos:
     hooks:
       - id: cargo-clippy
         name: cargo clippy
-        entry: cargo clippy
-        args: ["--"]
+        entry: cargo clippy --all-targets -- -D warnings
         language: system
-        types: [rust]
         pass_filenames: false
+        types: [rust]
       - id: cargo-fmt
         name: cargo fmt
         entry: cargo fmt
@@ -37,7 +36,7 @@ repos:
         pass_filenames: false
       - id: cargo-check
         name: cargo check
-        entry: cargo check
+        entry: cargo check --all-targets
         language: system
         types: [rust]
         pass_filenames: false

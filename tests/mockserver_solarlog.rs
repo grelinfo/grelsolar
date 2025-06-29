@@ -12,7 +12,7 @@ impl SolarlogMockServer {
     /// Create and start a new mock server
     pub async fn start() -> Self {
         let server = MockServer::start_async().await;
-        Self { server: server }
+        Self { server }
     }
 
     /// Get url
