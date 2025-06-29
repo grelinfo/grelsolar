@@ -92,19 +92,15 @@ impl SolarBridgeBackgroundService {
     /// Synchronizes the current solar power with Home Assistant.
     async fn sync_solar_power(&self, last_power: Option<i64>) -> Option<i64> {
         let power = match self.solarlog.get_current_power().await {
-            Ok(Some(power)) if last_power != Some(power) => power,
-            Ok(Some(_)) => return last_power,
-            Ok(None) => {
-                log::warn!("Solar Power: no data");
-                return last_power;
-            }
+            Ok(power) if last_power != Some(power) => power,
+            Ok(power) => return Some(power),
             Err(e) => {
                 log::error!("Solar Power: {e}");
                 return last_power;
             }
         };
 
-        // Only reached when we have a new value to update
+        // Only reach
         match self.home_assistant.set_solar_current_power(power).await {
             Ok(_) => log::debug!("Solar Power: {power} W"),
             Err(e) => log::error!("Solar Power update: {e}"),
@@ -120,12 +116,8 @@ impl SolarBridgeBackgroundService {
         last_energy_today: Option<i64>,
     ) -> Option<i64> {
         let energy = match self.solarlog.get_energy_of_day(day).await {
-            Ok(Some(energy)) if last_energy_today != Some(energy) => energy,
-            Ok(Some(_)) => return last_energy_today,
-            Ok(None) => {
-                log::warn!("Solar Energy: no data");
-                return last_energy_today;
-            }
+            Ok(energy) if last_energy_today != Some(energy) => energy,
+            Ok(power) => return Some(power),
             Err(e) => {
                 log::error!("Solar Energy: {e}");
                 return last_energy_today;
@@ -151,12 +143,8 @@ impl SolarBridgeBackgroundService {
         last_status: Option<solarlog::InverterStatus>,
     ) -> Option<solarlog::InverterStatus> {
         let status = match self.solarlog.get_status().await {
-            Ok(Some(status)) if last_status.as_ref() != Some(&status) => status,
-            Ok(Some(_)) => return last_status,
-            Ok(None) => {
-                log::warn!("Solar Status: no data");
-                return last_status;
-            }
+            Ok(status) if last_status.as_ref() != Some(&status) => status,
+            Ok(status) => return Some(status),
             Err(e) => {
                 log::error!("Solar Status: {e}");
                 return last_status;
@@ -174,8 +162,10 @@ impl SolarBridgeBackgroundService {
 
     fn day_midnight(day: &NaiveDate) -> DateTime<chrono::Local> {
         day.and_hms_opt(0, 0, 0)
-            .and_then(|d| d.and_local_timezone(chrono::Local).single())
-            .expect("cannot create midnight time")
+            .expect("invalid time")
+            .and_local_timezone(chrono::Local)
+            .single()
+            .expect("ambiguous timezone")
     }
 }
 

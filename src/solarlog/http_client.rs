@@ -118,11 +118,11 @@ impl HttpClient {
     async fn do_query(&self, query: &str) -> Result<Value> {
         self.do_login(false).await?;
         let token_read = self.token.read().await;
-        let token = token_read.as_ref().ok_or(Error::LoginExpired)?;
+        let token = token_read.as_ref().ok_or(Error::TokenExpired)?;
         let response_text = self.request_getjp(token, query).await?;
         let result = Self::validate_query_response(&response_text);
         match result {
-            Ok(text) => serde_json::from_str(text).map_err(Error::JsonSerializationFailed),
+            Ok(text) => serde_json::from_str(text).map_err(Error::ResponseJsonError),
             Err(Error::AccessDenied) => {
                 // Clone and release the read lock before acquiring the write lock
                 let token = token.clone();
@@ -266,26 +266,18 @@ impl HttpClient {
     // Predicate function for the retry strategy to determine if an error is retryable.
     fn is_retryable_error(error: &Error) -> bool {
         match error {
-            Error::RequestFailed(err) => Self::is_client_error(err),
-            Error::WrongPassword => false,
-            Error::QueryImpossible => false,
+            Error::RequestFailed(err) => !Self::is_client_error(err), // Retry if not a client error
             Error::AccessDenied => true, // Retry if token expires or is invalid
-            Error::RequestRejected => false, // Don't retry on circuit breaker rejection
-            Error::LoginExpired => true, // Retry if login expired
-            Error::JsonSerializationFailed(_) => false, // Don't retry on serialization errors
+            Error::TokenExpired => true, // Retry if login expired
+            _ => false,                  // Don't retry on other errors
         }
     }
 
     /// Predicate function for the circuit breaker to record errors that are not client errors.
     fn is_recorded_error(error: &Error) -> bool {
         match error {
-            Error::RequestFailed(err) => !Self::is_client_error(err), // Don't record client errors
-            Error::WrongPassword => false, // Don't record wrong password errors
-            Error::QueryImpossible => false, // Don't record query impossible errors
-            Error::AccessDenied => false,  // Don't record access denied errors
-            Error::RequestRejected => false, // Don't record circuit breaker rejections
-            Error::LoginExpired => false,  // Don't record login expired errors
-            Error::JsonSerializationFailed(_) => false, // Don't record serialization errors
+            Error::RequestFailed(err) => !Self::is_client_error(err), // Record if not a client error
+            _ => false,                                               // Don't record other errors
         }
     }
 }
@@ -306,9 +298,7 @@ mod tests {
     }
 
     fn create_json_serialization_error() -> Error {
-        Error::JsonSerializationFailed(
-            serde_json::from_str::<serde_json::Value>("not_json").unwrap_err(),
-        )
+        Error::ResponseJsonError(serde_json::from_str::<serde_json::Value>("not_json").unwrap_err())
     }
 
     #[test]
@@ -355,7 +345,7 @@ mod tests {
         assert!(!HttpClient::is_retryable_error(&Error::QueryImpossible));
         assert!(HttpClient::is_retryable_error(&Error::AccessDenied));
         assert!(!HttpClient::is_retryable_error(&Error::RequestRejected));
-        assert!(HttpClient::is_retryable_error(&Error::LoginExpired));
+        assert!(HttpClient::is_retryable_error(&Error::TokenExpired));
         assert!(!HttpClient::is_retryable_error(
             &create_json_serialization_error()
         ));
@@ -374,7 +364,7 @@ mod tests {
         assert!(!HttpClient::is_recorded_error(&Error::QueryImpossible));
         assert!(!HttpClient::is_recorded_error(&Error::AccessDenied));
         assert!(!HttpClient::is_recorded_error(&Error::RequestRejected));
-        assert!(!HttpClient::is_recorded_error(&Error::LoginExpired));
+        assert!(!HttpClient::is_recorded_error(&Error::TokenExpired));
         assert!(!HttpClient::is_recorded_error(
             &create_json_serialization_error()
         ));
