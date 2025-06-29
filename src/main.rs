@@ -12,7 +12,7 @@ async fn main() {
     let config = match Config::from_env() {
         Ok(cfg) => cfg,
         Err(e) => {
-            eprintln!("Configuration error: {:?}", e);
+            eprintln!("Configuration error: {e:?}");
             std::process::exit(1);
         }
     };

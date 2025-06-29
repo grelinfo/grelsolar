@@ -63,11 +63,7 @@ impl HttpClient {
 
     /// Internal method to post state to Home Assistant.
     async fn request_post_state(&self, entity_id: &str, body: &str) -> Result<()> {
-        log::debug!(
-            "Sending post state request for entity '{}': {}",
-            entity_id,
-            body
-        );
+        log::debug!("Sending post state request for entity '{entity_id}': {body}",);
         let url = self
             .base_url
             .join(&format!("api/states/{entity_id}"))

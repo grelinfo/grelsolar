@@ -74,7 +74,7 @@ impl HttpClient {
         let mut token_lock = self.token.write().await;
         if let Some(token) = token_lock.take() {
             if let Err(err) = self.request_logout(&token).await {
-                log::warn!("Failed to logout: {}", err);
+                log::warn!("Failed to logout: {err}");
                 false
             } else {
                 log::debug!("Logout successful");
@@ -211,12 +211,12 @@ impl HttpClient {
 
     /// Perform a GET request to the SolarLog device with the provided query.
     async fn request_getjp(&self, token: &str, query: &str) -> Result<String> {
-        log::debug!("Send query request: {}", query);
+        log::debug!("Send query request: {query}");
         let url = self
             .base_url
             .join("/getjp")
             .expect("cannot build query URL");
-        let body = format!("token={};{}", token, query);
+        let body = format!("token={token};{query}");
         let response = self
             .client
             .post(url)
@@ -227,7 +227,7 @@ impl HttpClient {
             .error_for_status()
             .map_err(Error::RequestFailed)?;
         let text = response.text().await?;
-        log::debug!("Query response: {}", text);
+        log::debug!("Query response: {text}");
         Ok(text)
     }
 
