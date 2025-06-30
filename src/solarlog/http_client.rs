@@ -339,8 +339,8 @@ mod tests {
             StatusCode::INTERNAL_SERVER_ERROR,
         ));
 
-        assert!(HttpClient::is_retryable_error(&err_400));
-        assert!(!HttpClient::is_retryable_error(&err_500));
+        assert!(!HttpClient::is_retryable_error(&err_400));
+        assert!(HttpClient::is_retryable_error(&err_500));
         assert!(!HttpClient::is_retryable_error(&Error::WrongPassword));
         assert!(!HttpClient::is_retryable_error(&Error::QueryImpossible));
         assert!(HttpClient::is_retryable_error(&Error::AccessDenied));

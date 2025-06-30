@@ -21,27 +21,12 @@ repos:
       - id: committed
   - repo: local
     hooks:
-      - id: cargo-clippy
-        name: cargo clippy
-        entry: cargo clippy --all-targets -- -D warnings
+      - id: ci
+        name: ci
+        entry: just ci
         language: system
         pass_filenames: false
-        types: [rust]
-      - id: cargo-fmt
-        name: cargo fmt
-        entry: cargo fmt
-        args: ["--"]
-        language: system
-        types: [rust]
-        pass_filenames: false
-      - id: cargo-check
-        name: cargo check
-        entry: cargo check --all-targets
-        language: system
-        types: [rust]
-        pass_filenames: false
-
 ci:
   autofix_commit_msg: 🎨 [pre-commit.ci] Auto format from pre-commit.com hooks
   autoupdate_commit_msg: ⬆ [pre-commit.ci] pre-commit autoupdate
-  skip: [cargo-fmt, cargo-clippy, cargo-check]
+  skip: [ci]
