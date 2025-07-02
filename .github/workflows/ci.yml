@@ -17,6 +17,8 @@ jobs:
         with:
           enable-cache: true
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - run: just setup
       - run: just version-bump
       - run: just format-check
