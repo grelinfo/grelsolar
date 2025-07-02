@@ -45,7 +45,7 @@ export CARGO_TERM_COLOR := "always"
 # Generate coverage
 @coverage:
     cargo llvm-cov nextest --workspace --all-targets --all-features --locked
-    cargo llvm-cov report --lcov --output-path lcov.info --use-color
+    cargo llvm-cov report --lcov --output-path lcov.info --color always
 
 # Pre-commit checks (fast subset for developers)
 @pre-commit:
