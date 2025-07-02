@@ -35,9 +35,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: extractions/setup-just@v3
-      - uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
@@ -74,9 +71,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: extractions/setup-just@v3
-      - uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
@@ -94,9 +88,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: extractions/setup-just@v3
-      - uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
@@ -119,9 +110,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: extractions/setup-just@v3
-      - uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
