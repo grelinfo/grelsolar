@@ -53,13 +53,7 @@ export CARGO_TERM_COLOR := "always"
 
 # Get the current version
 @version:
-    git fetch --tags
-    git fetch origin main
     uvx dunamai from git --tag-branch main --pattern default-unprefixed --bump --style semver
-
-# Version bump (for CI)
-@version-bump:
-    cargo set-version $(just version)
 
 # Get Docker-compatible version (without + character)
 @docker-version:

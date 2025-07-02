@@ -7,8 +7,32 @@ on:
   pull_request:
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      BUILD_VERSION: ${{ steps.build_version.outputs.BUILD_VERSION }}
+      DOCKER_VERSION: ${{ steps.docker_version.outputs.DOCKER_VERSION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: extractions/setup-just@v3
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: just setup
+      - id: build_version
+        run: echo "BUILD_VERSION=$(just version)" >> $GITHUB_OUTPUT
+      - id: docker_version
+        run: echo "DOCKER_VERSION=$(just docker-version)" >> $GITHUB_OUTPUT
+
   build:
     runs-on: ubuntu-latest
+    needs: version
+    env:
+      BUILD_VERSION: ${{ needs.version.outputs.BUILD_VERSION }}
+      DOCKER_VERSION: ${{ needs.version.outputs.DOCKER_VERSION }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -20,7 +44,7 @@ jobs:
         with:
           cache-on-failure: true
       - run: just setup
-      - run: just version-bump
+      - run: cargo set-version ${{ env.BUILD_VERSION }}
       - run: just format-check
       - run: just lint
       - run: just build
@@ -43,7 +67,10 @@ jobs:
   publish:
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [version, build]
+    env:
+      BUILD_VERSION: ${{ needs.version.outputs.BUILD_VERSION }}
+      DOCKER_VERSION: ${{ needs.version.outputs.DOCKER_VERSION }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -52,12 +79,15 @@ jobs:
         with:
           enable-cache: true
       - run: just setup
-      - run: just version-bump
+      - run: cargo set-version ${{ env.BUILD_VERSION }}
       - run: cargo publish --allow-dirty
 
   docker:
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [version, build]
+    env:
+      BUILD_VERSION: ${{ needs.version.outputs.BUILD_VERSION }}
+      DOCKER_VERSION: ${{ needs.version.outputs.DOCKER_VERSION }}
     steps:
       - uses: actions/checkout@v4
       - uses: extractions/setup-just@v3
@@ -65,17 +95,20 @@ jobs:
         with:
           enable-cache: true
       - run: just setup
-      - run: just version-bump
+      - run: cargo set-version ${{ env.BUILD_VERSION }}
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
           push: false
-          tags: grelinfo/grelsolar:$(just docker-version)
+          tags: grelinfo/grelsolar:${{ env.DOCKER_VERSION }}
 
   docker-publish:
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
-    needs: [docker]
+    needs: [version, docker]
+    env:
+      BUILD_VERSION: ${{ needs.version.outputs.BUILD_VERSION }}
+      DOCKER_VERSION: ${{ needs.version.outputs.DOCKER_VERSION }}
     steps:
       - uses: actions/checkout@v4
       - uses: extractions/setup-just@v3
@@ -83,7 +116,7 @@ jobs:
         with:
           enable-cache: true
       - run: just setup
-      - run: just version-bump
+      - run: cargo set-version ${{ env.BUILD_VERSION }}
       - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -95,8 +128,9 @@ jobs:
         with:
           images: grelinfo/grelsolar
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},value=${{ env.DOCKER_VERSION }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ env.DOCKER_VERSION }}
+            type=raw,value=latest,enable=${{ !contains(env.DOCKER_VERSION, '-') }}
       - uses: docker/build-push-action@v6
         with:
           push: true
