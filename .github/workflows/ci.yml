@@ -21,7 +21,6 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-      - run: just setup
       - id: build_version
         run: echo "BUILD_VERSION=$(just version)" >> $GITHUB_OUTPUT
       - id: docker_version
