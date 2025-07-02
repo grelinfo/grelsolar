@@ -53,6 +53,7 @@ export CARGO_TERM_COLOR := "always"
 
 # Get the current version
 @version:
+    git fetch --tags
     uvx dunamai from git --tag-branch main --pattern default-unprefixed --bump --style semver
 
 # Version bump (for CI)
