@@ -25,6 +25,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          cache-suffix: ${{ github.ref_name }}
       - id: build_version
         run: echo "BUILD_VERSION=$(just version)" >> $GITHUB_OUTPUT
       - id: docker_version
