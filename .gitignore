@@ -2,3 +2,4 @@
 .env
 lcov.info
 .DS_Store
+junit.xml

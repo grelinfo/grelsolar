@@ -12,7 +12,7 @@ export CARGO_TERM_COLOR := "always"
     # Ensure you have UV installed
     uv --version || (echo "uv not found. Please install UV: https://docs.astral.sh/uv/getting-started/installation/" && exit 1)
     # Install dependencies
-    cargo install --locked cargo-edit cargo-nextest cargo-llvm-cov
+    cargo install --locked cargo-edit cargo-nextest cargo-llvm-cov circleci-junit-fix
 
 # Quick check (fast for local development)
 @check:
@@ -37,6 +37,7 @@ export CARGO_TERM_COLOR := "always"
 # Run tests
 @test:
     cargo nextest run --workspace --all-targets --all-features --profile ci --locked
+    cat target/nextest/ci/junit.xml | circleci-junit-fix > junit.xml
 
 # Build all targets
 @build:
