@@ -90,15 +90,16 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: grelinfo/grelsolar
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
       - uses: docker/build-push-action@v6
         with:
           push: true
-          tags: grelinfo/grelsolar:$(just docker-version)
-          platforms: linux/amd64,linux/arm64
-      # Only tag as latest if this is a stable release (no '-' in tag, i.e., not a pre-release)
-      - if: ${{ !contains(github.ref, '-') }}
-        uses: docker/build-push-action@v6
-        with:
-          push: true
-          tags: grelinfo/grelsolar:latest
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
