@@ -12,7 +12,7 @@ export CARGO_TERM_COLOR := "always"
     # Ensure you have UV installed
     uv --version || (echo "uv not found. Please install UV: https://docs.astral.sh/uv/getting-started/installation/" && exit 1)
     # Install dependencies
-    cargo install --locked just cargo-nextest cargo-llvm-cov cargo-fmt cargo-clippy
+    cargo install --locked cargo-edit cargo-nextest cargo-llvm-cov
 
 # Quick check (fast for local development)
 @check:
@@ -42,9 +42,6 @@ export CARGO_TERM_COLOR := "always"
 @build:
     cargo build --workspace --all-targets --locked
 
-@docker-build:
-    docker build -t grust:latest .
-
 # Generate coverage
 @coverage:
     cargo llvm-cov nextest --workspace --all-targets --all-features --locked
@@ -54,8 +51,21 @@ export CARGO_TERM_COLOR := "always"
 @pre-commit:
     uvx pre-commit run --all-files
 
+# Get the current version
 @version:
-    uvx dunamai from git --pattern default-unprefixed --bump --style semver
+    uvx dunamai from git --tag-branch main --pattern default-unprefixed --bump --style semver
+
+# Version bump (for CI)
+@version-bump:
+    cargo set-version $(just version)
+
+# Get Docker-compatible version (without + character)
+@docker-version:
+    uvx dunamai from git --tag-branch main --pattern default-unprefixed --bump --style semver | sed 's/+/-/g'
+
+# Build Docker image
+@docker-build:
+    docker build -t grelsolar:0.0.0 .
 
 # Full CI checks (comprehensive)
 @ci:

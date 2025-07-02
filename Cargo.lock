@@ -816,7 +816,7 @@ dependencies = [
 
 [[package]]
 name = "grelsolar"
-version = "0.0.0"
+version = "0.1.1-pre.39+29a636e"
 dependencies = [
  "async-lock",
  "chrono",

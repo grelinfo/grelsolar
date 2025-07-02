@@ -1,6 +1,6 @@
 [package]
 name = "grelsolar"
-version = "0.0.0" # Managed by CI
+version = "0.1.1-pre.39+29a636e"
 edition = "2024"
 license = "MIT"
 authors = ["Loïc Gremaud <loic.gremaud@grelinfo.ch>"]
