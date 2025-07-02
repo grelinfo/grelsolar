@@ -1,4 +1,4 @@
 [toolchain]
 channel = "1.88"
-components = ["rustfmt", "clippy", "llvm-tools-preview"]
+components = ["rustfmt", "clippy", "llvm-tools-preview", "cargo-llvm-cov"]
 targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]

@@ -1,73 +1,67 @@
-# Justfile (alternative to Makefile)
+# Justfile - Single source of truth for all commands
 
+# Common environment variables for local and CI
 export RUSTFLAGS := "-D warnings"
-export CARGO_INCREMENTAL := "1"
+export CARGO_TERM_COLOR := "always"
 
-# Display help message
-default:
-    just help
+# Setup environment
+@setup:
+    # Ensure you have Rust and Cargo installed
+    rustc --version || (echo "rustc not found. Please install Rust: https://rustup.rs/" && exit 1)
+    cargo --version || (echo "cargo not found. Please install Rust: https://rustup.rs/" && exit 1)
+    # Ensure you have UV installed
+    uv --version || (echo "uv not found. Please install UV: https://docs.astral.sh/uv/getting-started/installation/" && exit 1)
+    # Install dependencies
+    cargo install --locked just cargo-nextest cargo-llvm-cov cargo-fmt cargo-clippy
 
-# Setup the local development environment
-setup:
-    @if ! command -v cargo >/dev/null 2>&1; then echo "Error: cargo is not installed. Please install Rust and Cargo first."; exit 1; fi
-    @if ! command -v uv >/dev/null 2>&1; then echo "Error: uv is not installed. Please install uv (https://github.com/astral-sh/uv)."; exit 1; fi
-    cargo install --path . --locked
-    cargo install cargo-watch --locked
-    cargo install cargo-edit --locked
-    @if [ ! -f .env ]; then cp .env.example .env; echo "Please adapt .env"; fi
-    @echo "Environment setup complete."
-
-# Run the application
-run:
-    cargo run --locked
-
-# Run the application in development mode
-dev:
-    cargo watch -x run
-
-# Build the project (debug)
-build:
-    cargo build --workspace --all-targets --locked
-
-# Update dependencies
-update:
-    cargo update
-
-# Run all tests (unit + integration)
-test:
-    cargo nextest run --workspace --all-targets --all-features --profile ci --locked
-
-# Lint code
-lint:
-    cargo clippy --all-targets --all-features --
-
-# Fix code
-fix:
-    cargo clippy --all-targets --all-features --fix --allow-dirty
+# Quick check (fast for local development)
+@check:
+    cargo check --workspace --all-targets
 
 # Format code
-format:
+@format:
     cargo fmt --all
 
-# Format code (check only, dry run)
-format-check:
+# Format check (for CI)
+@format-check:
     cargo fmt --all -- --check
 
-# Create a release build (optimized)
-release:
-    cargo build --release --locked
+# Lint with clippy
+@lint:
+    cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-version:
-    @uvx dunamai from git --pattern default-unprefixed --style semver
+# Fix lint issues
+@fix:
+    cargo clippy --workspace --all-targets --all-features --fix --allow-dirty
 
+# Run tests
+@test:
+    cargo nextest run --workspace --all-targets --all-features --profile ci --locked
 
-# Run all quality checks
+# Build all targets
+@build:
+    cargo build --workspace --all-targets --locked
+
+@docker-build:
+    docker build -t grust:latest .
+
+# Generate coverage
+@coverage:
+    cargo llvm-cov nextest --workspace --all-targets --all-features --locked
+    cargo llvm-cov report --lcov --output-path lcov.info
+
+# Pre-commit checks (fast subset for developers)
+@pre-commit:
+    uvx pre-commit run --all-files
+
+@version:
+    uvx dunamai from git --pattern default-unprefixed --bump --style semver
+
+# Full CI checks (comprehensive)
 @ci:
-    just version
-    just lint
+    SKIP=format,check,lint pre-commit run --all-files
     just format-check
+    just lint
+    just build
     just test
-
-# Show help
-help:
-    @just --list
+    just coverage

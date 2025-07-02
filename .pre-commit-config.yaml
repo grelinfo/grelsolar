@@ -9,7 +9,6 @@ repos:
       - id: check-json
       - id: check-toml
       - id: check-merge-conflict
-      - id: check-case-conflict
       - id: detect-private-key
   - repo: https://github.com/crate-ci/typos
     rev: v1.32.0
@@ -21,12 +20,22 @@ repos:
       - id: committed
   - repo: local
     hooks:
-      - id: ci
-        name: ci
-        entry: just ci
+      - id: format
+        name: format
+        entry: just format
+        language: system
+        pass_filenames: false
+      - id: check
+        name: check
+        entry: just check
+        language: system
+        pass_filenames: false
+      - id: lint
+        name: lint
+        entry: just lint
         language: system
         pass_filenames: false
 ci:
   autofix_commit_msg: 🎨 [pre-commit.ci] Auto format from pre-commit.com hooks
   autoupdate_commit_msg: ⬆ [pre-commit.ci] pre-commit autoupdate
-  skip: [ci]
+  skip: ["format", "check", "lint"]
