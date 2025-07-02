@@ -2,6 +2,14 @@
 
 A Rust application for bridging SolarLog and Home Assistant, providing solar power, energy, and status data from SolarLog devices to Home Assistant via HTTP API.
 
+
+[![Crates.io](https://img.shields.io/crates/v/grelsolar)](https://crates.io/crates/grelsolar)
+[![Docs.rs](https://img.shields.io/docsrs/grelsolar)](https://docs.rs/grelsolar)
+[![CI](https://github.com/grelinfo/grelsolar/actions/workflows/ci.yml/badge.svg)](https://github.com/grelinfo/grelsolar/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/grelinfo/grelsolar/graph/badge.svg?token=GDFY0AEFWR)](https://codecov.io/gh/grelinfo/grelsolar)
+[![Docker Hub](https://img.shields.io/docker/pulls/grelinfo/grelsolar)](https://hub.docker.com/r/grelinfo/grelsolar)
+
+
 ## Features
 - Polls SolarLog for power, energy, and status data
 - Integrates with Home Assistant via HTTP API
