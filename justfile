@@ -49,12 +49,13 @@ export CARGO_TERM_COLOR := "always"
 
 # Pre-commit checks (fast subset for developers)
 @pre-commit:
-    uvx pre-commit run --all-files
+    uvx pre-commit run --all-filesgit
 
 # Get the current version
 @version:
     git fetch --tags
-    uvx dunamai from git --latest-tag --pattern default-unprefixed --bump --style semver
+    git fetch origin main
+    uvx dunamai from git --tag-branch main --pattern default-unprefixed --bump --style semver
 
 # Version bump (for CI)
 @version-bump:
