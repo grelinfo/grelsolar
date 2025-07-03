@@ -113,3 +113,25 @@ async fn test_get_energy_of_month(#[future] client_server_logged: (Client, Solar
     mock.assert_async().await;
     assert_eq!(energy.expect("failed to get energy of month"), expected);
 }
+
+#[rstest]
+#[tokio::test]
+async fn test_get_current_power_server_error(
+    #[future] client_server_logged: (Client, SolarlogMockServer),
+) {
+    let (client, server) = client_server_logged.await;
+    let mock = server.mock_error_current_power().await;
+
+    let result_call_1 = client.get_current_power().await;
+    let result_call_2 = client.get_current_power().await;
+
+    assert!(mock.hits_async().await > 2, "should retry on server error");
+    assert!(
+        matches!(result_call_1, Err(Error::RequestFailed(_))),
+        "request should fail due to server error"
+    );
+    assert!(
+        matches!(result_call_2, Err(Error::RequestRejected)),
+        "circuit breaker should reject the request due to repeated failures"
+    );
+}

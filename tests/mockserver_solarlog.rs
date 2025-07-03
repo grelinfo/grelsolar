@@ -192,4 +192,24 @@ impl SolarlogMockServer {
         let month = NaiveDate::from_ymd_opt(2025, 6, 1).expect("cannot create month date");
         (mock, month, 550370)
     }
+
+    /// Mock error for current power
+    pub async fn mock_error_current_power<'a>(&'a self) -> Mock<'a> {
+        self.server
+            .mock_async(|when, then| {
+                when.method(POST)
+                    .path("/getjp")
+                    .header(
+                        "cookie",
+                        "SolarLog=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=",
+                    )
+                    .body(
+                        r#"token=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=;{"782":{"0":null}}"#,
+                    );
+                then.status(500)
+                    .header("content-type", "text/html")
+                    .body("Internal Server Error");
+            })
+            .await
+    }
 }
