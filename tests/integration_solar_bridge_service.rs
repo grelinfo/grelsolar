@@ -1,124 +1,95 @@
-// //! Integration tests for the SolarBridgeBackgroundService.
-// use std::sync::Arc;
-// use chrono::Local;
-// use grelsolar::services::solar_bridge::SolarBridgeBackgroundService;
-// use grelsolar::solarlog::{Client as SolarLogClient, InverterStatus};
-// use grelsolar::homeassistant::Client as HomeAssistantClient;
-// use httpmock::{MockServer, Method::POST};
-// use reqwest::Url;
-// use tokio::time::Duration;
-// use rstest::*;
+//! Integration tests for the SolarBridgeBackgroundService.
+use crate::mockserver_homeassistant::HomeAssistantMockServer;
+use crate::mockserver_solarlog::SolarlogMockServer;
+use grelsolar::integration::homeassistant::Client as HomeAssistantClient;
+use grelsolar::integration::solarlog::Client as SolarLogClient;
+use grelsolar::services::solar_bridge::SolarBridgeBackgroundService;
+use rstest::*;
+use std::sync::Arc;
+use tokio::time::Duration;
 
-// #[fixture]
-// async fn solarlog_server() -> MockServer {
-//     MockServer::start_async().await
-// }
+mod mockserver_homeassistant;
+mod mockserver_solarlog;
 
-// #[fixture]
-// async fn ha_server() -> MockServer {
-//     MockServer::start_async().await
-// }
+async fn mock_setup() -> (
+    SolarlogMockServer,
+    HomeAssistantMockServer,
+    SolarBridgeBackgroundService,
+) {
+    let solarlog_mockserver = SolarlogMockServer::start().await;
+    let homeassistant_mockserver = HomeAssistantMockServer::start().await;
 
-// #[fixture]
-// async fn solarlog_client(#[future] solarlog_server: MockServer) -> Arc<SolarLogClient> {
-//     let server = solarlog_server.await;
-//     let url = Url::parse(&server.url("/")).unwrap();
-//     Arc::new(SolarLogClient::new(url, "pw".to_string()))
-// }
+    let solarlog_client = Arc::new(SolarLogClient::new(
+        solarlog_mockserver.url(),
+        solarlog_mockserver.password(),
+    ));
 
-// #[fixture]
-// async fn ha_client(#[future] ha_server: MockServer) -> Arc<HomeAssistantClient> {
-//     let server = ha_server.await;
-//     let url = Url::parse(&server.url("/")).unwrap();
-//     Arc::new(HomeAssistantClient::new(url.clone(), "token".to_string()))
-// }
+    let homeassistant_client = Arc::new(HomeAssistantClient::new(
+        homeassistant_mockserver.url(),
+        homeassistant_mockserver.token(),
+    ));
 
-// #[fixture]
-// async fn service(
-//     #[future] solarlog_client: Arc<SolarLogClient>,
-//     #[future] ha_client: Arc<HomeAssistantClient>,
-// ) -> SolarBridgeBackgroundService {
-//     let solarlog_client = solarlog_client.await;
-//     let ha_client = ha_client.await;
-//     SolarBridgeBackgroundService::new(
-//         solarlog_client,
-//         ha_client,
-//         Duration::from_secs(1),
-//         Duration::from_secs(1),
-//         Duration::from_secs(1),
-//     )
-// }
+    solarlog_mockserver.mock_login_success().await;
+    solarlog_client
+        .login()
+        .await
+        .expect("login failed in fixture");
 
-// #[rstest]
-// #[tokio::test]
-// async fn test_sync_solar_power(
-//     #[future] solarlog_server: MockServer,
-//     #[future] ha_server: MockServer,
-//     #[future] service: SolarBridgeBackgroundService,
-// ) {
-//     let solarlog_server = solarlog_server.await;
-//     let ha_server = ha_server.await;
-//     let service = service.await;
-//     let power_mock = solarlog_server.mock_async(|when, then| {
-//         when.method(POST).path("/getjp");
-//         then.status(200).json_body(serde_json::json!({"782": {"0": 1234}}));
-//     }).await;
-//     let ha_power_mock = ha_server.mock_async(|when, then| {
-//         when.method(POST).path("/api/states/sensor.solar_power");
-//         then.status(200).json_body(serde_json::json!({"state": "1234"}));
-//     }).await;
-//     let result = service.sync_solar_power(None).await;
-//     assert_eq!(result, Some(1234));
-//     ha_power_mock.assert_async().await;
-//     power_mock.assert_async().await;
-// }
+    let service = SolarBridgeBackgroundService::new(
+        solarlog_client,
+        homeassistant_client,
+        Duration::from_micros(1),
+        Duration::from_micros(1),
+        Duration::from_micros(1),
+    );
 
-// #[rstest]
-// #[tokio::test]
-// async fn test_sync_solar_status(
-//     #[future] solarlog_server: MockServer,
-//     #[future] ha_server: MockServer,
-//     #[future] service: SolarBridgeBackgroundService,
-// ) {
-//     let solarlog_server = solarlog_server.await;
-//     let ha_server = ha_server.await;
-//     let service = service.await;
-//     let status_mock = solarlog_server.mock_async(|when, then| {
-//         when.method(POST).path("/getjp");
-//         then.status(200).json_body(serde_json::json!({"608": {"0": "On-grid"}}));
-//     }).await;
-//     let ha_status_mock = ha_server.mock_async(|when, then| {
-//         when.method(POST).path("/api/states/sensor.solar_status");
-//         then.status(200).json_body(serde_json::json!({"state": "On-grid"}));
-//     }).await;
-//     let result = service.sync_solar_status(None).await;
-//     assert_eq!(result, Some(InverterStatus::OnGrid));
-//     ha_status_mock.assert_async().await;
-//     status_mock.assert_async().await;
-// }
+    (solarlog_mockserver, homeassistant_mockserver, service)
+}
 
-// #[rstest]
-// #[tokio::test]
-// async fn test_sync_solar_energy(
-//     #[future] solarlog_server: MockServer,
-//     #[future] ha_server: MockServer,
-//     #[future] service: SolarBridgeBackgroundService,
-// ) {
-//     let solarlog_server = solarlog_server.await;
-//     let ha_server = ha_server.await;
-//     let service = service.await;
-//     let today = Local::now().date_naive();
-//     let today_str = today.format("%d.%m.%y").to_string();
-//     let energy_mock = solarlog_server.mock_async(move |when, then| {
-//         when.method(POST).path("/getjp");
-//         then.status(200).json_body(serde_json::json!({"777": {"0": [[today_str.clone(), [42]]]}}));
-//     }).await;
-//     let ha_energy_mock = ha_server.mock_async(|when, then| {
-//         when.method(POST).path("/api/states/sensor.solar_energy");
-//         then.status(200).json_body(serde_json::json!({"state": "0.042"}));
-//     }).await;
-//     let result = service.sync_solar_energy(today, None).await;
-//     assert_eq!(result, Some(42));
-//     ha_energy_mock.assert_async().await;
-//     energy_mock.assert_async().await;
-// }
+#[tokio::test]
+async fn test_sync_solar_power() {
+    let (solarlog_mockserver, homeassistant_mockserver, service) = mock_setup().await;
+    let (solarlog_mock, expected) = solarlog_mockserver.mock_current_power().await;
+    let homeassistant_mock = homeassistant_mockserver
+        .mock_set_solar_power(expected)
+        .await;
+
+    let result = service.sync_solar_power(None).await;
+
+    solarlog_mock.assert_async().await;
+    homeassistant_mock.assert_async().await;
+    assert_eq!(result, Some(expected));
+}
+
+#[tokio::test]
+async fn test_sync_solar_status() {
+    let (solarlog_mockserver, homeassistant_mockserver, service) = mock_setup().await;
+    let (solarlog_mock, expected) = solarlog_mockserver.mock_status().await;
+    let homeassistant_mock = homeassistant_mockserver
+        .mock_set_solar_status(expected)
+        .await;
+
+    let result = service.sync_solar_status(None).await;
+
+    solarlog_mock.assert_async().await;
+    homeassistant_mock.assert_async().await;
+    assert_eq!(result.map(|s| s.to_string()), Some(expected.to_string()));
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_sync_solar_energy() {
+    let (solarlog_mockserver, homeassistant_mockserver, service) = mock_setup().await;
+    let (solarlog_mock, day, expected) = solarlog_mockserver.mock_energy_daily().await;
+    let last_reset = SolarBridgeBackgroundService::day_midnight(&day);
+    let energy_kwh = (expected as f64) / 1000.0; // Convert to kWh
+    let homeassistant_mock = homeassistant_mockserver
+        .mock_set_solar_energy(energy_kwh, &last_reset)
+        .await;
+
+    let result = service.sync_solar_energy(day, None).await;
+
+    solarlog_mock.assert_async().await;
+    homeassistant_mock.assert_async().await;
+    assert_eq!(result, Some(expected));
+}

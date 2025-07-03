@@ -8,6 +8,7 @@ pub struct SolarlogMockServer {
     pub server: MockServer,
 }
 
+#[allow(dead_code)]
 impl SolarlogMockServer {
     /// Create and start a new mock server
     pub async fn start() -> Self {
@@ -22,8 +23,8 @@ impl SolarlogMockServer {
     }
 
     /// Get password
-    pub fn password(&self) -> &str {
-        "password"
+    pub fn password(&self) -> String {
+        String::from("password")
     }
 
     /// Mock login success
@@ -95,9 +96,9 @@ impl SolarlogMockServer {
         (mock, 1234)
     }
 
-    /// Mock query status
+    /// Mock inverter status
     /// Returns a tuple with the mock and the expected status string
-    pub async fn mock_query_status<'a>(&'a self) -> (Mock<'a>, &'static str) {
+    pub async fn mock_status<'a>(&'a self) -> (Mock<'a>, &'static str) {
         let mock =
             self.server
                 .mock_async(|when, then| {

@@ -1,4 +1,5 @@
 //! Mock server for Home Assistant API
+use chrono::{DateTime, TimeZone};
 use httpmock::{Method::POST, Mock, MockServer};
 use reqwest::Url;
 use serde_json::json;
@@ -8,6 +9,7 @@ pub struct HomeAssistantMockServer {
     pub server: MockServer,
 }
 
+#[allow(dead_code)]
 impl HomeAssistantMockServer {
     /// Start and return a running MockServer for Home Assistant.
     pub async fn start() -> Self {
@@ -21,16 +23,17 @@ impl HomeAssistantMockServer {
     }
 
     /// Token to use in Authorization headers in mocks.
-    pub fn token(&self) -> &str {
-        "test_token"
+    pub fn token(&self) -> String {
+        String::from("test_token")
     }
 
     /// Mock the set state for solar energy with sample request/response.
-    pub async fn mock_set_solar_energy<'a>(
+    pub async fn mock_set_solar_energy<'a, Tz: TimeZone>(
         &'a self,
         energy_kwh: f64,
-        last_reset: &str,
+        last_reset: &DateTime<Tz>,
     ) -> Mock<'a> {
+        let last_reset = last_reset.to_rfc3339();
         self.server
             .mock_async(move |when, then| {
                 when.method(POST)

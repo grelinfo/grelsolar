@@ -90,7 +90,7 @@ impl SolarBridgeBackgroundService {
     }
 
     /// Synchronizes the current solar power with Home Assistant.
-    async fn sync_solar_power(&self, last_power: Option<i64>) -> Option<i64> {
+    pub async fn sync_solar_power(&self, last_power: Option<i64>) -> Option<i64> {
         let power = match self.solarlog.get_current_power().await {
             Ok(power) if last_power != Some(power) => power,
             Ok(power) => return Some(power),
@@ -110,7 +110,7 @@ impl SolarBridgeBackgroundService {
     }
 
     /// Synchronizes the solar energy produced today with Home Assistant.
-    async fn sync_solar_energy(
+    pub async fn sync_solar_energy(
         &self,
         day: NaiveDate,
         last_energy_today: Option<i64>,
@@ -138,7 +138,7 @@ impl SolarBridgeBackgroundService {
     }
 
     /// Synchronizes the SolarLog device status with Home Assistant.
-    async fn sync_solar_status(
+    pub async fn sync_solar_status(
         &self,
         last_status: Option<solarlog::InverterStatus>,
     ) -> Option<solarlog::InverterStatus> {
@@ -160,7 +160,7 @@ impl SolarBridgeBackgroundService {
         Some(status)
     }
 
-    fn day_midnight(day: &NaiveDate) -> DateTime<chrono::Local> {
+    pub fn day_midnight(day: &NaiveDate) -> DateTime<chrono::Local> {
         day.and_hms_opt(0, 0, 0)
             .expect("invalid time")
             .and_local_timezone(chrono::Local)

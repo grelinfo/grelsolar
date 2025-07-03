@@ -21,9 +21,10 @@ async fn client_server_logged() -> (Client, SolarlogMockServer) {
     let _ = env_logger::builder().is_test(true).try_init();
     let server = SolarlogMockServer::start().await;
     let client = Client::new(server.url(), server.password().to_string());
-    // perform login in fixture
-    let _login_mock = server.mock_login_success().await;
+
+    server.mock_login_success().await;
     client.login().await.expect("login failed in fixture");
+
     (client, server)
 }
 
@@ -81,7 +82,7 @@ async fn test_get_current_power(#[future] client_server_logged: (Client, Solarlo
 #[tokio::test]
 async fn test_get_status(#[future] client_server_logged: (Client, SolarlogMockServer)) {
     let (client, server) = client_server_logged.await;
-    let (mock, _expected) = server.mock_query_status().await;
+    let (mock, _expected) = server.mock_status().await;
 
     let status = client.get_status().await;
 
