@@ -3,7 +3,7 @@ use crate::mockserver_homeassistant::HomeAssistantMockServer;
 use crate::mockserver_solarlog::SolarlogMockServer;
 use grelsolar::integration::homeassistant::Client as HomeAssistantClient;
 use grelsolar::integration::solarlog::Client as SolarLogClient;
-use grelsolar::services::solar_bridge::SolarBridgeBackgroundService;
+use grelsolar::services::solarbridge::SolarBridgeBackgroundService;
 use rstest::*;
 use std::sync::Arc;
 use tokio::time::Duration;
