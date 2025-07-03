@@ -172,20 +172,19 @@ impl SolarBridgeBackgroundService {
 #[cfg(test)]
 mod tests {
     use super::SolarBridgeBackgroundService;
-    use chrono::{Local, Timelike};
+    use chrono::{Datelike, NaiveDate, Timelike};
 
     #[test]
-    fn test_today_midnight_is_midnight() {
-        let today = Local::now().date_naive();
-        let midnight = SolarBridgeBackgroundService::day_midnight(&today);
-        let now = Local::now();
+    fn test_day_midnight() {
+        let static_date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+        let midnight = SolarBridgeBackgroundService::day_midnight(&static_date);
 
-        // Should be today
-        assert_eq!(midnight.date_naive(), now.date_naive());
-
-        // Should be at 00:00:00
+        assert_eq!(midnight.year(), 2024);
+        assert_eq!(midnight.month(), 6);
+        assert_eq!(midnight.day(), 1);
         assert_eq!(midnight.hour(), 0);
         assert_eq!(midnight.minute(), 0);
         assert_eq!(midnight.second(), 0);
+        assert_eq!(midnight.nanosecond(), 0);
     }
 }
