@@ -46,8 +46,8 @@ APP_LOG=info
 APP_LOG_STYLE=always
 SOLARLOG_URL=http://192.168.1.2
 SOLARLOG_PASSWORD=your_solarlog_password
-HOME_ASSISTANT_URL=http://homeassistant.local:8123
-HOME_ASSISTANT_TOKEN=your_long_lived_token
+HOMEASSISTANT_URL=http://homeassistant.local:8123
+HOMEASSISTANT_TOKEN=your_long_lived_token
 ```
 
 ### Running

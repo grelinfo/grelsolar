@@ -5,11 +5,11 @@ use chrono::{DateTime, NaiveDate};
 use std::sync::Arc;
 use tokio::time::{Duration, interval};
 
-use crate::{home_assistant, solarlog};
+use crate::integration::{homeassistant, solarlog};
 
 pub struct SolarBridgeBackgroundService {
     solarlog: Arc<solarlog::Client>,
-    home_assistant: Arc<home_assistant::Client>,
+    homeassistant: Arc<homeassistant::Client>,
     power_period: Duration,
     energy_period: Duration,
     status_period: Duration,
@@ -19,14 +19,14 @@ impl SolarBridgeBackgroundService {
     /// Creates a new instance of `SolarService`.
     pub fn new(
         solarlog: Arc<solarlog::Client>,
-        home_assistant: Arc<home_assistant::Client>,
+        homeassistant: Arc<homeassistant::Client>,
         power_period: Duration,
         energy_period: Duration,
         status_period: Duration,
     ) -> Self {
         SolarBridgeBackgroundService {
             solarlog,
-            home_assistant,
+            homeassistant,
             power_period,
             energy_period,
             status_period,
@@ -101,7 +101,7 @@ impl SolarBridgeBackgroundService {
         };
 
         // Only reach
-        match self.home_assistant.set_solar_current_power(power).await {
+        match self.homeassistant.set_solar_current_power(power).await {
             Ok(_) => log::debug!("Solar Power: {power} W"),
             Err(e) => log::error!("Solar Power update: {e}"),
         }
@@ -126,7 +126,7 @@ impl SolarBridgeBackgroundService {
 
         let day_midnight = Self::day_midnight(&day);
         match self
-            .home_assistant
+            .homeassistant
             .set_solar_energy(energy, &day_midnight)
             .await
         {
@@ -152,7 +152,7 @@ impl SolarBridgeBackgroundService {
         };
 
         let status_str = status.to_string();
-        match self.home_assistant.set_solar_status(&status_str).await {
+        match self.homeassistant.set_solar_status(&status_str).await {
             Ok(_) => log::debug!("Solar Status: {status_str}"),
             Err(e) => log::error!("Solar Status update: {e}"),
         }

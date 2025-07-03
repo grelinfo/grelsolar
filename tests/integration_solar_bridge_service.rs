@@ -3,7 +3,7 @@
 // use chrono::Local;
 // use grelsolar::services::solar_bridge::SolarBridgeBackgroundService;
 // use grelsolar::solarlog::{Client as SolarLogClient, InverterStatus};
-// use grelsolar::home_assistant::Client as HomeAssistantClient;
+// use grelsolar::homeassistant::Client as HomeAssistantClient;
 // use httpmock::{MockServer, Method::POST};
 // use reqwest::Url;
 // use tokio::time::Duration;

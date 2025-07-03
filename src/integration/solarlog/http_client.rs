@@ -1,6 +1,6 @@
 //! SolarLog HTTP client.
 //! This is the lower level client for SolarLog.
-use crate::solarlog::error::{Error, Result};
+use super::error::{Error, Result};
 use failsafe::{
     backoff::{self, Constant},
     failure_policy::{self, ConsecutiveFailures},

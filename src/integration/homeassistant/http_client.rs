@@ -13,8 +13,8 @@ use std::time::Duration;
 use tokio_retry::RetryIf;
 use tokio_retry::strategy::{ExponentialBackoff, jitter};
 
-use crate::home_assistant::schemas::StateCreateOrUpdate;
-use crate::home_assistant::{Error, Result};
+use super::schemas::StateCreateOrUpdate;
+use super::{Error, Result};
 
 pub struct HttpClient {
     client: Client,

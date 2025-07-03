@@ -1,7 +1,7 @@
 //! SolarLog Client.
 //! This client is the higher level API client for SolarLog.
 use super::http_client::HttpClient;
-use crate::solarlog::{Error, Result};
+use super::{Error, Result};
 use chrono::NaiveDate;
 use reqwest::Url;
 use serde_json::Value;

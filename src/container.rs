@@ -2,11 +2,13 @@
 
 use std::sync::Arc;
 
-use crate::{config::Config, home_assistant, services, solarlog};
+use crate::config::Config;
+use crate::integration::{homeassistant, solarlog};
+use crate::services;
 
 pub struct Container {
     pub solarlog: Arc<solarlog::Client>,
-    pub home_assistant: Arc<home_assistant::Client>,
+    pub homeassistant: Arc<homeassistant::Client>,
     pub solar_service: Arc<services::SolarBridgeBackgroundService>,
 }
 
@@ -17,14 +19,14 @@ impl Container {
             config.solarlog_url.to_owned(),
             config.solarlog_password.to_owned(),
         ));
-        let home_assistant = Arc::new(home_assistant::Client::new(
-            config.home_assistant_url.to_owned(),
-            config.home_assistant_token.to_owned(),
+        let homeassistant = Arc::new(homeassistant::Client::new(
+            config.homeassistant_url.to_owned(),
+            config.homeassistant_token.to_owned(),
         ));
         let solar_service = Arc::new({
             services::SolarBridgeBackgroundService::new(
                 Arc::clone(&solarlog),
-                Arc::clone(&home_assistant),
+                Arc::clone(&homeassistant),
                 config.solar_power_period,
                 config.solar_energy_period,
                 config.solar_status_period,
@@ -32,7 +34,7 @@ impl Container {
         });
         Self {
             solarlog,
-            home_assistant,
+            homeassistant,
             solar_service,
         }
     }

@@ -1,10 +1,9 @@
 //! Integration tests for the Home Assistant client.
-use crate::mockserver_home_assistant::HomeAssistantMockServer;
-mod mockserver_home_assistant;
+use crate::mockserver_homeassistant::HomeAssistantMockServer;
+mod mockserver_homeassistant;
 
 use chrono::TimeZone;
-use grelsolar::home_assistant::Client;
-use grelsolar::home_assistant::Error;
+use grelsolar::integration::homeassistant::{Client, Error};
 use rstest::fixture;
 use rstest::*;
 

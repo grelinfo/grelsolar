@@ -1,9 +1,9 @@
 //! Home Assistant Client.
 //! This client is the higher level API client for Home Assistant.
 
+use super::Result;
 use super::http_client::HttpClient;
-use crate::home_assistant::Result;
-use crate::home_assistant::schemas::StateCreateOrUpdate;
+use super::schemas::StateCreateOrUpdate;
 use chrono::{DateTime, TimeZone};
 use reqwest::Url;
 pub struct Client {

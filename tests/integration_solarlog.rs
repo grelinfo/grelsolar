@@ -1,5 +1,5 @@
 //! Integration tests for the SolarLog client.
-use grelsolar::solarlog::{Client, InverterStatus};
+use grelsolar::integration::solarlog::{Client, Error, InverterStatus};
 use rstest::{fixture, rstest};
 
 use crate::mockserver_solarlog::SolarlogMockServer;
@@ -50,10 +50,7 @@ async fn test_login_failure(#[future] client_server: (Client, SolarlogMockServer
     let result = client.login().await;
 
     mock.assert_async().await;
-    assert!(matches!(
-        result,
-        Err(grelsolar::solarlog::Error::WrongPassword)
-    ));
+    assert!(matches!(result, Err(Error::WrongPassword)));
 }
 
 #[rstest]
