@@ -50,7 +50,7 @@ export CARGO_TERM_COLOR := "always"
 
 # Pre-commit checks (fast subset for developers)
 @pre-commit:
-    uvx pre-commit run --all-filesgit
+    uvx pre-commit run --all-files
 
 # Get the current version
 @version:
