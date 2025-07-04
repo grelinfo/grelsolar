@@ -150,3 +150,47 @@ async fn test_sync_solar_energy_no_change() {
     assert_eq!(homeassistant_mock.hits_async().await, 0);
     assert_eq!(result.unwrap(), Some(expected));
 }
+
+#[tokio::test]
+async fn test_service_run_starts_and_polls() {
+    let (solarlog_mockserver, homeassistant_mockserver, service) = mock_setup().await;
+
+    // Set up mocks for one expected poll of each endpoint
+    let (solarlog_power_mock, expected_power) = solarlog_mockserver.mock_current_power().await;
+    let _homeassistant_power_mock = homeassistant_mockserver
+        .mock_set_solar_power(expected_power)
+        .await;
+
+    let (solarlog_status_mock, expected_status) = solarlog_mockserver.mock_status().await;
+    let _homeassistant_status_mock = homeassistant_mockserver
+        .mock_set_solar_status(expected_status)
+        .await;
+
+    let (solarlog_energy_mock, day, expected_energy) =
+        solarlog_mockserver.mock_energy_daily().await;
+    let last_reset = SolarBridgeBackgroundService::day_midnight(&day);
+    let energy_kwh = (expected_energy as f64) / 1000.0;
+    let _homeassistant_energy_mock = homeassistant_mockserver
+        .mock_set_solar_energy(energy_kwh, &last_reset)
+        .await;
+
+    // Run the service for a short time
+    let service_handle = tokio::spawn(async move {
+        // Run for a short period, then exit
+        tokio::select! {
+            _ = service.run() => {},
+            _ = tokio::time::sleep(std::time::Duration::from_millis(2)) => {},
+        }
+    });
+
+    // Wait for the service to run
+    tokio::time::sleep(std::time::Duration::from_millis(2)).await;
+
+    // Drop the service to stop the background tasks
+    drop(service_handle);
+
+    // Assert that the mocks were hit at least once
+    assert!(solarlog_energy_mock.hits_async().await > 0);
+    assert!(solarlog_power_mock.hits_async().await > 0);
+    assert!(solarlog_status_mock.hits_async().await > 0);
+}
