@@ -207,9 +207,9 @@ mod tests {
         set_env("SOLARLOG_PASSWORD", "test_password");
         set_env("HOMEASSISTANT_URL", "http://localhost:8001");
         set_env("HOMEASSISTANT_TOKEN", "test_token");
-        set_env("SOLAR_POWER_SYNC_INTERVALD", "10s");
-        set_env("SOLAR_ENERGY_SYNC_INTERVALD", "20s");
-        set_env("SOLAR_STATUS_SYNC_INTERVALD", "30s");
+        set_env("SOLAR_POWER_SYNC_INTERVAL", "10s");
+        set_env("SOLAR_ENERGY_SYNC_INTERVAL", "20s");
+        set_env("SOLAR_STATUS_SYNC_INTERVAL", "30s");
 
         let config = Config::from_env().unwrap();
 
@@ -231,9 +231,9 @@ mod tests {
         clear_env("SOLARLOG_PASSWORD");
         clear_env("HOMEASSISTANT_URL");
         clear_env("HOMEASSISTANT_TOKEN");
-        clear_env("SOLAR_POWER_SYNC_INTERVALD");
-        clear_env("SOLAR_ENERGY_SYNC_INTERVALD");
-        clear_env("SOLAR_STATUS_SYNC_INTERVALD");
+        clear_env("SOLAR_POWER_SYNC_INTERVAL");
+        clear_env("SOLAR_ENERGY_SYNC_INTERVAL");
+        clear_env("SOLAR_STATUS_SYNC_INTERVAL");
     }
 
     #[test]
