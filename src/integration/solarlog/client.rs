@@ -368,6 +368,16 @@ mod tests {
     }
 
     #[test]
+    fn test_extract_inverter_value_as_i64_invalid_parse() {
+        let json = serde_json::json!({"777": {"0": "notanumber"}});
+        let result = Client::extract_inverter_value_as_i64(&json, "777", 0);
+        assert!(matches!(
+            result,
+            Err(Error::ValueParseError(msg)) if msg.contains("Invalid i64 value for index 777 and inverter 0")
+        ));
+    }
+
+    #[test]
     fn test_extract_inverter_value_as_string_with_value() {
         let json = serde_json::json!({"608": {"0": "On-grid"}});
         let val = Client::extract_inverter_value_as_string(&json, "608", 0).unwrap();

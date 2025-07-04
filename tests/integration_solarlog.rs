@@ -116,7 +116,39 @@ async fn test_get_energy_of_month(#[future] client_server_logged: (Client, Solar
 
 #[rstest]
 #[tokio::test]
-async fn test_get_current_power_server_error(
+async fn test_is_logged_in_true(#[future] client_server_logged: (Client, SolarlogMockServer)) {
+    let (client, _server) = client_server_logged.await;
+
+    let logged_in = client.is_logged_in().await;
+
+    assert!(logged_in);
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_is_logged_in_false(#[future] client_server: (Client, SolarlogMockServer)) {
+    let (client, _server) = client_server.await;
+
+    let logged_in = client.is_logged_in().await;
+
+    assert!(!logged_in);
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_logout_without_login(#[future] client_server: (Client, SolarlogMockServer)) {
+    let (client, server) = client_server.await;
+    let mock = server.mock_logout_success().await;
+
+    let result = client.logout().await;
+
+    assert!(!result);
+    assert_eq!(mock.hits_async().await, 0);
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_client_reliability_server_error(
     #[future] client_server_logged: (Client, SolarlogMockServer),
 ) {
     let (client, server) = client_server_logged.await;
