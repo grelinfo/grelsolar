@@ -2,7 +2,7 @@
 use crate::mockserver_homeassistant::HomeAssistantMockServer;
 use crate::mockserver_solarlog::SolarlogMockServer;
 use grelsolar::integration::homeassistant::Client as HomeAssistantClient;
-use grelsolar::integration::solarlog::Client as SolarLogClient;
+use grelsolar::integration::solarlog::{self, Client as SolarLogClient};
 use grelsolar::services::solarbridge::SolarBridgeBackgroundService;
 use std::sync::Arc;
 use tokio::time::Duration;
@@ -57,7 +57,7 @@ async fn test_sync_solar_power() {
 
     solarlog_mock.assert_async().await;
     homeassistant_mock.assert_async().await;
-    assert_eq!(result, Some(expected));
+    assert_eq!(result.unwrap(), Some(expected));
 }
 
 #[tokio::test]
@@ -74,7 +74,7 @@ async fn test_sync_solar_power_no_change() {
 
     solarlog_mock.assert_async().await;
     assert_eq!(homeassistant_mock.hits_async().await, 0);
-    assert_eq!(result, Some(expected));
+    assert_eq!(result.unwrap(), Some(expected));
 }
 
 #[tokio::test]
@@ -89,7 +89,10 @@ async fn test_sync_solar_status() {
 
     solarlog_mock.assert_async().await;
     homeassistant_mock.assert_async().await;
-    assert_eq!(result.map(|s| s.to_string()), Some(expected.to_string()));
+    assert_eq!(
+        result.unwrap().map(|s| s.to_string()),
+        Some(expected.to_string())
+    );
 }
 
 #[tokio::test]
@@ -101,12 +104,16 @@ async fn test_sync_solar_status_no_change() {
         .mock_set_solar_status(expected)
         .await;
 
-    let inverter_status = expected.parse().expect("Failed to parse InverterStatus");
-    let result = service.sync_solar_status(Some(inverter_status)).await;
+    let inverter_status =
+        solarlog::InverterStatus::try_from(expected).expect("cannot parse inverter status");
+    let result = service.sync_solar_status(Some(&inverter_status)).await;
 
     solarlog_mock.assert_async().await;
     assert_eq!(homeassistant_mock.hits_async().await, 0);
-    assert_eq!(result.map(|s| s.to_string()), Some(expected.to_string()));
+    assert_eq!(
+        result.unwrap().map(|s| s.to_string()),
+        Some(expected.to_string())
+    );
 }
 
 #[tokio::test]
@@ -123,7 +130,7 @@ async fn test_sync_solar_energy() {
 
     solarlog_mock.assert_async().await;
     homeassistant_mock.assert_async().await;
-    assert_eq!(result, Some(expected));
+    assert_eq!(result.unwrap(), Some(expected));
 }
 
 #[tokio::test]
@@ -141,5 +148,5 @@ async fn test_sync_solar_energy_no_change() {
 
     solarlog_mock.assert_async().await;
     assert_eq!(homeassistant_mock.hits_async().await, 0);
-    assert_eq!(result, Some(expected));
+    assert_eq!(result.unwrap(), Some(expected));
 }
