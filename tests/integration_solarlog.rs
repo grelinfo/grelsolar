@@ -22,7 +22,7 @@ async fn client_server_logged() -> (Client, SolarlogMockServer) {
     let server = SolarlogMockServer::start().await;
     let client = Client::new(server.url(), server.password().to_string());
 
-    server.mock_login_success().await;
+    server.mock_login_ok().await;
     client.login().await.expect("login failed in fixture");
 
     (client, server)
@@ -30,10 +30,10 @@ async fn client_server_logged() -> (Client, SolarlogMockServer) {
 
 #[rstest]
 #[tokio::test]
-async fn test_login_success(#[future] client_server: (Client, SolarlogMockServer)) {
+async fn test_login_ok(#[future] client_server: (Client, SolarlogMockServer)) {
     let (client, server) = client_server.await;
 
-    let mock = server.mock_login_success().await;
+    let mock = server.mock_login_ok().await;
 
     let result = client.login().await;
 
@@ -43,10 +43,10 @@ async fn test_login_success(#[future] client_server: (Client, SolarlogMockServer
 
 #[rstest]
 #[tokio::test]
-async fn test_login_failure(#[future] client_server: (Client, SolarlogMockServer)) {
+async fn test_login_with_wrong_password(#[future] client_server: (Client, SolarlogMockServer)) {
     let (client, server) = client_server.await;
 
-    let mock = server.mock_login_failure().await;
+    let mock = server.mock_login_with_wrong_password().await;
 
     let result = client.login().await;
 
@@ -56,14 +56,45 @@ async fn test_login_failure(#[future] client_server: (Client, SolarlogMockServer
 
 #[rstest]
 #[tokio::test]
+async fn test_login_with_server_error(#[future] client_server: (Client, SolarlogMockServer)) {
+    let (client, server) = client_server.await;
+    let mock = server.mock_login_with_server_error().await;
+
+    let result_1 = client.login().await;
+    let result_2 = client.login().await;
+
+    assert!(mock.hits_async().await > 2, "should retry on server error");
+    assert!(matches!(result_1, Err(Error::RequestFailed(_))));
+    assert!(
+        matches!(result_2, Err(Error::RequestRejected)),
+        "second login should be rejected by circuit breaker"
+    );
+}
+
+#[rstest]
+#[tokio::test]
 async fn test_logout(#[future] client_server_logged: (Client, SolarlogMockServer)) {
     let (client, server) = client_server_logged.await;
-    let mock = server.mock_logout_success().await;
+    let mock = server.mock_logout_ok().await;
 
     let result = client.logout().await;
 
     assert!(result, "Logout should be successful");
     mock.assert_async().await;
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_logout_with_server_error(
+    #[future] client_server_logged: (Client, SolarlogMockServer),
+) {
+    let (client, server) = client_server_logged.await;
+    let mock = server.mock_logout_with_server_error().await;
+
+    let result = client.logout().await;
+
+    assert_eq!(mock.hits_async().await, 1, "should try to logout once");
+    assert!(!result, "logout should fail due to server error");
 }
 
 #[rstest]
@@ -138,7 +169,7 @@ async fn test_is_logged_in_false(#[future] client_server: (Client, SolarlogMockS
 #[tokio::test]
 async fn test_logout_without_login(#[future] client_server: (Client, SolarlogMockServer)) {
     let (client, server) = client_server.await;
-    let mock = server.mock_logout_success().await;
+    let mock = server.mock_logout_ok().await;
 
     let result = client.logout().await;
 
@@ -148,11 +179,11 @@ async fn test_logout_without_login(#[future] client_server: (Client, SolarlogMoc
 
 #[rstest]
 #[tokio::test]
-async fn test_client_reliability_server_error(
+async fn test_client_with_server_error(
     #[future] client_server_logged: (Client, SolarlogMockServer),
 ) {
     let (client, server) = client_server_logged.await;
-    let mock = server.mock_error_current_power().await;
+    let mock = server.mock_query_server_error().await;
 
     let result_call_1 = client.get_current_power().await;
     let result_call_2 = client.get_current_power().await;
@@ -165,5 +196,53 @@ async fn test_client_reliability_server_error(
     assert!(
         matches!(result_call_2, Err(Error::RequestRejected)),
         "circuit breaker should reject the request due to repeated failures"
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_query_with_query_impossible(
+    #[future] client_server_logged: (Client, SolarlogMockServer),
+) {
+    let (client, server) = client_server_logged.await;
+    let mock = server.mock_query_impossible().await;
+
+    let result_call_1 = client.get_current_power().await;
+    let result_call_2 = client.get_current_power().await;
+
+    assert_eq!(
+        mock.hits_async().await,
+        2,
+        "should not retry on impossible query"
+    );
+    assert!(
+        matches!(result_call_1, Err(Error::QueryImpossible)),
+        "request should fail due to impossible query"
+    );
+    assert!(
+        matches!(result_call_2, Err(Error::QueryImpossible)),
+        "circuit breaker should not reject the request for impossible query"
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_query_with_access_denied(
+    #[future] client_server_logged: (Client, SolarlogMockServer),
+) {
+    let (client, server) = client_server_logged.await;
+    let mock = server.mock_query_access_denied().await;
+
+    let result_call_1 = client.get_current_power().await;
+    let result_call_2 = client.get_current_power().await;
+
+    assert!(mock.hits_async().await > 2, "should retry on access denied");
+    assert!(
+        matches!(result_call_1, Err(Error::AccessDenied)),
+        "request should fail due to access denied"
+    );
+    assert!(
+        matches!(result_call_2, Err(Error::AccessDenied)),
+        "circuit breaker should not reject the request for access denied"
     );
 }

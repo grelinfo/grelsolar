@@ -178,7 +178,14 @@ impl HttpClient {
             .join("/login")
             .expect("cannot build login URL");
         let params = [("u", "user"), ("p", &self.password)];
-        let response = self.client.post(url).form(&params).send().await?;
+        let response = self
+            .client
+            .post(url)
+            .form(&params)
+            .send()
+            .await?
+            .error_for_status()
+            .map_err(Error::RequestFailed)?;
         let token = response
             .cookies()
             .find(|c| c.name() == "SolarLog")

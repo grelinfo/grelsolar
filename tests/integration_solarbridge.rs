@@ -28,7 +28,7 @@ async fn mock_setup() -> (
         homeassistant_mockserver.token(),
     ));
 
-    solarlog_mockserver.mock_login_success().await;
+    solarlog_mockserver.mock_login_ok().await;
     solarlog_client
         .login()
         .await

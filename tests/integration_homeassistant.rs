@@ -67,9 +67,7 @@ async fn test_client_set_solar_status(#[future] client_server: (Client, HomeAssi
 
 #[rstest]
 #[tokio::test]
-async fn test_client_reliability_server_error(
-    #[future] client_server: (Client, HomeAssistantMockServer),
-) {
+async fn test_client_with_server_error(#[future] client_server: (Client, HomeAssistantMockServer)) {
     let (client, server) = client_server.await;
     let mock = server.mock_error_solar_power().await;
 

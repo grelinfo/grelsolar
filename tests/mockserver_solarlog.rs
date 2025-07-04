@@ -28,7 +28,7 @@ impl SolarlogMockServer {
     }
 
     /// Mock login success
-    pub async fn mock_login_success<'a>(&'a self) -> Mock<'a> {
+    pub async fn mock_login_ok<'a>(&'a self) -> Mock<'a> {
         self.server
             .mock_async(|when, then| {
                 when.method(POST)
@@ -47,7 +47,7 @@ impl SolarlogMockServer {
     }
 
     /// Mock login failure
-    pub async fn mock_login_failure<'a>(&'a self) -> Mock<'a> {
+    pub async fn mock_login_with_wrong_password<'a>(&'a self) -> Mock<'a> {
         self.server
             .mock_async(|when, then| {
                 when.method(POST)
@@ -61,8 +61,23 @@ impl SolarlogMockServer {
             .await
     }
 
+    /// Mock login with server error
+    pub async fn mock_login_with_server_error<'a>(&'a self) -> Mock<'a> {
+        self.server
+            .mock_async(|when, then| {
+                when.method(POST)
+                    .path("/login")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body("u=user&p=password");
+                then.status(500)
+                    .header("content-type", "text/html")
+                    .body("Internal Server Error");
+            })
+            .await
+    }
+
     /// Mock logout success
-    pub async fn mock_logout_success<'a>(&'a self) -> Mock<'a> {
+    pub async fn mock_logout_ok<'a>(&'a self) -> Mock<'a> {
         self.server
             .mock_async(|when, then| {
                 when.method(POST).path("/logout").header(
@@ -73,6 +88,21 @@ impl SolarlogMockServer {
                     .header("set-cookie", "SolarLog=")
                     .header("content-type", "text/html")
                     .body("SUCESS - You are now logged out."); // Typos in solarLog API responses
+            })
+            .await
+    }
+
+    /// Mock logout with server error
+    pub async fn mock_logout_with_server_error<'a>(&'a self) -> Mock<'a> {
+        self.server
+            .mock_async(|when, then| {
+                when.method(POST).path("/logout").header(
+                    "cookie",
+                    "SolarLog=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=",
+                );
+                then.status(500)
+                    .header("content-type", "text/html")
+                    .body("Internal Server Error");
             })
             .await
     }
@@ -193,8 +223,23 @@ impl SolarlogMockServer {
         (mock, month, 550370)
     }
 
-    /// Mock error for current power
-    pub async fn mock_error_current_power<'a>(&'a self) -> Mock<'a> {
+    /// Mock query server error
+    pub async fn mock_query_server_error<'a>(&'a self) -> Mock<'a> {
+        self.server
+            .mock_async(|when, then| {
+                when.method(POST).path("/getjp").header(
+                    "cookie",
+                    "SolarLog=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=",
+                );
+                then.status(500)
+                    .header("content-type", "text/html")
+                    .body("Internal Server Error");
+            })
+            .await
+    }
+
+    /// Mock query impossible
+    pub async fn mock_query_impossible<'a>(&'a self) -> Mock<'a> {
         self.server
             .mock_async(|when, then| {
                 when.method(POST)
@@ -203,12 +248,38 @@ impl SolarlogMockServer {
                         "cookie",
                         "SolarLog=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=",
                     )
-                    .body(
-                        r#"token=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=;{"782":{"0":null}}"#,
+                    .body_matches(
+                        regex::Regex::new(
+                            r#"token=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=;.*"#,
+                        )
+                        .unwrap(),
                     );
-                then.status(500)
+                then.status(200)
                     .header("content-type", "text/html")
-                    .body("Internal Server Error");
+                    .body(r#"{{"QUERY IMPOSSIBLE 000"}}"#);
+            })
+            .await
+    }
+
+    /// Mock query access denied
+    pub async fn mock_query_access_denied<'a>(&'a self) -> Mock<'a> {
+        self.server
+            .mock_async(|when, then| {
+                when.method(POST)
+                    .path("/getjp")
+                    .header(
+                        "cookie",
+                        "SolarLog=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=",
+                    )
+                    .body_matches(
+                        regex::Regex::new(
+                            r#"token=Wazi4Y08JTGY1W56wqPMjMVOa7MxLttaB5n/1Z7NKvg=;.*"#,
+                        )
+                        .unwrap(),
+                    );
+                then.status(200)
+                    .header("content-type", "text/html")
+                    .body(r#"{"780": "ACCESS DENIED"}"#);
             })
             .await
     }

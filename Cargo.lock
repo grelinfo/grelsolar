@@ -834,6 +834,7 @@ dependencies = [
  "httpmock",
  "humantime",
  "log",
+ "regex",
  "reqwest",
  "rstest",
  "serde",
