@@ -2,13 +2,11 @@
 
 use std::sync::Arc;
 
-use crate::config::Config;
+use super::config::Config;
 use crate::integration::{homeassistant, solarlog};
 use crate::services;
 
 pub struct Container {
-    pub solarlog: Arc<solarlog::Client>,
-    pub homeassistant: Arc<homeassistant::Client>,
     pub solar_service: Arc<services::SolarBridgeBackgroundService>,
 }
 
@@ -32,10 +30,29 @@ impl Container {
                 config.solar_status_sync_interval,
             )
         });
-        Self {
-            solarlog,
-            homeassistant,
-            solar_service,
-        }
+        Self { solar_service }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_container_new_wires_dependencies() {
+        let config = Config {
+            app_name: "test_app".into(),
+            app_version: "0.0.0".into(),
+            app_log: "info".into(),
+            app_log_style: "auto".into(),
+            solarlog_url: reqwest::Url::parse("http://localhost:1234").unwrap(),
+            solarlog_password: "pw".into(),
+            homeassistant_url: reqwest::Url::parse("http://localhost:5678").unwrap(),
+            homeassistant_token: "token".into(),
+            solar_power_sync_interval: std::time::Duration::from_secs(1),
+            solar_energy_sync_interval: std::time::Duration::from_secs(1),
+            solar_status_sync_interval: std::time::Duration::from_secs(1),
+        };
+        let _container = Container::new(&config);
     }
 }

@@ -179,12 +179,12 @@ async fn test_service_run_starts_and_polls() {
         // Run for a short period, then exit
         tokio::select! {
             _ = service.run() => {},
-            _ = tokio::time::sleep(std::time::Duration::from_millis(2)) => {},
+            _ = tokio::time::sleep(std::time::Duration::from_millis(10)) => {},
         }
     });
 
     // Wait for the service to run
-    tokio::time::sleep(std::time::Duration::from_millis(2)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
 
     // Drop the service to stop the background tasks
     drop(service_handle);

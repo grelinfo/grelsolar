@@ -10,7 +10,9 @@ use tokio::time::Duration;
 pub struct Config {
     pub app_name: String,
     pub app_version: String,
+    #[allow(dead_code)]
     pub app_log: String,
+    #[allow(dead_code)]
     pub app_log_style: String,
     pub solarlog_url: Url,
     pub solarlog_password: String,
@@ -22,18 +24,18 @@ pub struct Config {
 }
 
 #[derive(Debug, Error)]
-pub enum ConfigError {
+pub enum Error {
     #[error("Environment variable not found: {0}")]
-    EnvVarNotFoundError(String),
+    EnvVarNotFound(String),
     #[error("Failed to parse URL for environment variable: {0}")]
-    UrlParseError(String),
+    InvalidUrl(String),
     #[error("Failed to parse duration for environment variable: {0}")]
-    DurationParseError(#[from] humantime::DurationError),
+    InvalidDuration(#[from] humantime::DurationError),
 }
 
 impl Config {
     /// Creates a new `Config` instance by reading environment variables.
-    pub fn from_env() -> Result<Self, ConfigError> {
+    pub fn from_env() -> Result<Self, Error> {
         Ok(Self {
             app_name: env!("CARGO_PKG_NAME").to_string(),
             app_version: env!("CARGO_PKG_VERSION").to_string(),
@@ -83,27 +85,27 @@ impl Env {
         }
     }
 
-    fn as_string(&self) -> Result<String, ConfigError> {
+    fn as_string(&self) -> Result<String, Error> {
         match env::var(&self.name) {
             Ok(value) if !value.trim().is_empty() => Ok(value),
-            Ok(_) => Err(ConfigError::EnvVarNotFoundError(self.name.clone())),
+            Ok(_) => Err(Error::EnvVarNotFound(self.name.clone())),
             Err(_) => match &self.default {
                 Some(default_value) => Ok(default_value.clone()),
-                None => Err(ConfigError::EnvVarNotFoundError(self.name.clone())),
+                None => Err(Error::EnvVarNotFound(self.name.clone())),
             },
         }
     }
 
-    fn as_url(&self) -> Result<Url, ConfigError> {
+    fn as_url(&self) -> Result<Url, Error> {
         let value = self.as_string()?;
-        Url::parse(&value).map_err(|_| ConfigError::UrlParseError(self.name.clone()))
+        Url::parse(&value).map_err(|_| Error::InvalidUrl(self.name.clone()))
     }
 
-    fn as_duration(&self) -> Result<Duration, ConfigError> {
+    fn as_duration(&self) -> Result<Duration, Error> {
         let value = self.as_string()?;
         humantime::parse_duration(&value)
             .map(|d| Duration::from_secs(d.as_secs()))
-            .map_err(ConfigError::DurationParseError)
+            .map_err(Error::InvalidDuration)
     }
 }
 
@@ -141,7 +143,7 @@ mod tests {
             env::set_var("TEST_STRING", "   ");
         }
         let err = Env::var("TEST_STRING").as_string().unwrap_err();
-        matches!(err, ConfigError::EnvVarNotFoundError(_));
+        matches!(err, Error::EnvVarNotFound(_));
         clear_env("TEST_STRING");
     }
 
@@ -156,7 +158,7 @@ mod tests {
     fn test_as_string_env_missing_no_default() {
         clear_env("TEST_STRING");
         let err = Env::var("TEST_STRING").as_string().unwrap_err();
-        matches!(err, ConfigError::EnvVarNotFoundError(_));
+        matches!(err, Error::EnvVarNotFound(_));
     }
 
     #[test]
@@ -171,7 +173,7 @@ mod tests {
     fn test_as_url_invalid() {
         set_env("TEST_URL", "not a url");
         let err = Env::var("TEST_URL").as_url().unwrap_err();
-        matches!(err, ConfigError::UrlParseError(_));
+        matches!(err, Error::InvalidUrl(_));
         clear_env("TEST_URL");
     }
 
@@ -195,7 +197,7 @@ mod tests {
     fn test_as_duration_invalid() {
         set_env("TEST_DUR", "not a duration");
         let err = Env::var("TEST_DUR").as_duration().unwrap_err();
-        matches!(err, ConfigError::DurationParseError(_));
+        matches!(err, Error::InvalidDuration(_));
         clear_env("TEST_DUR");
     }
 
