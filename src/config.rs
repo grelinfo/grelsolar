@@ -16,9 +16,9 @@ pub struct Config {
     pub solarlog_password: String,
     pub homeassistant_url: Url,
     pub homeassistant_token: String,
-    pub solar_power_period: Duration,
-    pub solar_energy_period: Duration,
-    pub solar_status_period: Duration,
+    pub solar_power_sync_interval: Duration,
+    pub solar_energy_sync_interval: Duration,
+    pub solar_status_sync_interval: Duration,
 }
 
 #[derive(Debug, Error)]
@@ -43,9 +43,15 @@ impl Config {
             solarlog_password: Env::var("SOLARLOG_PASSWORD").as_string()?,
             homeassistant_url: Env::var("HOMEASSISTANT_URL").as_url()?,
             homeassistant_token: Env::var("HOMEASSISTANT_TOKEN").as_string()?,
-            solar_power_period: Env::var("SOLAR_POWER_PERIOD").or("5s").as_duration()?,
-            solar_energy_period: Env::var("SOLAR_ENERGY_PERIOD").or("60s").as_duration()?,
-            solar_status_period: Env::var("SOLAR_STATUS_PERIOD").or("60s").as_duration()?,
+            solar_power_sync_interval: Env::var("SOLAR_POWER_SYNC_INTERVAL")
+                .or("5s")
+                .as_duration()?,
+            solar_energy_sync_interval: Env::var("SOLAR_ENERGY_SYNC_INTERVAL")
+                .or("60s")
+                .as_duration()?,
+            solar_status_sync_interval: Env::var("SOLAR_STATUS_SYNC_INTERVAL")
+                .or("60s")
+                .as_duration()?,
         })
     }
 }
@@ -201,9 +207,9 @@ mod tests {
         set_env("SOLARLOG_PASSWORD", "test_password");
         set_env("HOMEASSISTANT_URL", "http://localhost:8001");
         set_env("HOMEASSISTANT_TOKEN", "test_token");
-        set_env("SOLAR_POWER_PERIOD", "10s");
-        set_env("SOLAR_ENERGY_PERIOD", "20s");
-        set_env("SOLAR_STATUS_PERIOD", "30s");
+        set_env("SOLAR_POWER_SYNC_INTERVALD", "10s");
+        set_env("SOLAR_ENERGY_SYNC_INTERVALD", "20s");
+        set_env("SOLAR_STATUS_SYNC_INTERVALD", "30s");
 
         let config = Config::from_env().unwrap();
 
@@ -215,9 +221,9 @@ mod tests {
         assert_eq!(config.solarlog_password, "test_password");
         assert_eq!(config.homeassistant_url.as_str(), "http://localhost:8001/");
         assert_eq!(config.homeassistant_token, "test_token");
-        assert_eq!(config.solar_power_period, Duration::from_secs(10));
-        assert_eq!(config.solar_energy_period, Duration::from_secs(20));
-        assert_eq!(config.solar_status_period, Duration::from_secs(30));
+        assert_eq!(config.solar_power_sync_interval, Duration::from_secs(10));
+        assert_eq!(config.solar_energy_sync_interval, Duration::from_secs(20));
+        assert_eq!(config.solar_status_sync_interval, Duration::from_secs(30));
 
         clear_env("APP_LOG");
         clear_env("APP_LOG_STYLE");
@@ -225,9 +231,9 @@ mod tests {
         clear_env("SOLARLOG_PASSWORD");
         clear_env("HOMEASSISTANT_URL");
         clear_env("HOMEASSISTANT_TOKEN");
-        clear_env("SOLAR_POWER_PERIOD");
-        clear_env("SOLAR_ENERGY_PERIOD");
-        clear_env("SOLAR_STATUS_PERIOD");
+        clear_env("SOLAR_POWER_SYNC_INTERVALD");
+        clear_env("SOLAR_ENERGY_SYNC_INTERVALD");
+        clear_env("SOLAR_STATUS_SYNC_INTERVALD");
     }
 
     #[test]

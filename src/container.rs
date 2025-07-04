@@ -27,9 +27,9 @@ impl Container {
             services::SolarBridgeBackgroundService::new(
                 Arc::clone(&solarlog),
                 Arc::clone(&homeassistant),
-                config.solar_power_period,
-                config.solar_energy_period,
-                config.solar_status_period,
+                config.solar_power_sync_interval,
+                config.solar_energy_sync_interval,
+                config.solar_status_sync_interval,
             )
         });
         Self {
