@@ -112,138 +112,118 @@ impl Env {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
     use std::time::Duration;
-
-    fn set_env(key: &str, value: &str) {
-        unsafe {
-            env::set_var(key, value);
-        }
-    }
-
-    fn clear_env(key: &str) {
-        unsafe {
-            env::remove_var(key);
-        }
-    }
+    use temp_env::{with_var, with_vars};
 
     #[test]
     fn test_as_string_env_present() {
-        unsafe {
-            env::set_var("TEST_STRING", "hello");
-        }
-        let val = Env::var("TEST_STRING").as_string().unwrap();
-        assert_eq!(val, "hello");
-        clear_env("TEST_STRING");
+        with_var("TEST_STRING", Some("hello"), || {
+            let val = Env::var("TEST_STRING").as_string().unwrap();
+            assert_eq!(val, "hello");
+        });
     }
 
     #[test]
     fn test_as_string_env_empty() {
-        unsafe {
-            env::set_var("TEST_STRING", "   ");
-        }
-        let err = Env::var("TEST_STRING").as_string().unwrap_err();
-        matches!(err, Error::EnvVarNotFound(_));
-        clear_env("TEST_STRING");
+        with_var("TEST_STRING", Some("   "), || {
+            let err = Env::var("TEST_STRING").as_string().unwrap_err();
+            matches!(err, Error::EnvVarNotFound(_));
+        });
     }
 
     #[test]
     fn test_as_string_env_missing_with_default() {
-        clear_env("TEST_STRING");
-        let val = Env::var("TEST_STRING").or("default").as_string().unwrap();
-        assert_eq!(val, "default");
+        temp_env::with_var("TEST_STRING", None::<&str>, || {
+            let val = Env::var("TEST_STRING").or("default").as_string().unwrap();
+            assert_eq!(val, "default");
+        });
     }
 
     #[test]
     fn test_as_string_env_missing_no_default() {
-        clear_env("TEST_STRING");
-        let err = Env::var("TEST_STRING").as_string().unwrap_err();
-        matches!(err, Error::EnvVarNotFound(_));
+        temp_env::with_var("TEST_STRING", None::<&str>, || {
+            let err = Env::var("TEST_STRING").as_string().unwrap_err();
+            matches!(err, Error::EnvVarNotFound(_));
+        });
     }
 
     #[test]
     fn test_as_url_valid() {
-        set_env("TEST_URL", "http://localhost:1234");
-        let url = Env::var("TEST_URL").as_url().unwrap();
-        assert_eq!(url.as_str(), "http://localhost:1234/");
-        clear_env("TEST_URL");
+        with_var("TEST_URL", Some("http://localhost:1234"), || {
+            let url = Env::var("TEST_URL").as_url().unwrap();
+            assert_eq!(url.as_str(), "http://localhost:1234/");
+        });
     }
 
     #[test]
     fn test_as_url_invalid() {
-        set_env("TEST_URL", "not a url");
-        let err = Env::var("TEST_URL").as_url().unwrap_err();
-        matches!(err, Error::InvalidUrl(_));
-        clear_env("TEST_URL");
+        with_var("TEST_URL", Some("not a url"), || {
+            let err = Env::var("TEST_URL").as_url().unwrap_err();
+            matches!(err, Error::InvalidUrl(_));
+        });
     }
 
     #[test]
     fn test_as_duration_seconds() {
-        set_env("TEST_DUR", "42s");
-        let dur = Env::var("TEST_DUR").as_duration().unwrap();
-        assert_eq!(dur, Duration::from_secs(42));
-        clear_env("TEST_DUR");
+        with_var("TEST_DUR", Some("42s"), || {
+            let dur = Env::var("TEST_DUR").as_duration().unwrap();
+            assert_eq!(dur, Duration::from_secs(42));
+        });
     }
 
     #[test]
     fn test_as_duration_human() {
-        set_env("TEST_DUR", "2m");
-        let dur = Env::var("TEST_DUR").as_duration().unwrap();
-        assert_eq!(dur, Duration::from_secs(120));
-        clear_env("TEST_DUR");
+        with_var("TEST_DUR", Some("2m"), || {
+            let dur = Env::var("TEST_DUR").as_duration().unwrap();
+            assert_eq!(dur, Duration::from_secs(120));
+        });
     }
 
     #[test]
     fn test_as_duration_invalid() {
-        set_env("TEST_DUR", "not a duration");
-        let err = Env::var("TEST_DUR").as_duration().unwrap_err();
-        matches!(err, Error::InvalidDuration(_));
-        clear_env("TEST_DUR");
+        with_var("TEST_DUR", Some("not a duration"), || {
+            let err = Env::var("TEST_DUR").as_duration().unwrap_err();
+            matches!(err, Error::InvalidDuration(_));
+        });
     }
 
     #[test]
     fn test_config_from_env() {
-        set_env("APP_LOG", "debug");
-        set_env("APP_LOG_STYLE", "auto");
-        set_env("SOLARLOG_URL", "http://localhost:8080");
-        set_env("SOLARLOG_PASSWORD", "test_password");
-        set_env("HOMEASSISTANT_URL", "http://localhost:8001");
-        set_env("HOMEASSISTANT_TOKEN", "test_token");
-        set_env("SOLAR_POWER_SYNC_INTERVAL", "10s");
-        set_env("SOLAR_ENERGY_SYNC_INTERVAL", "20s");
-        set_env("SOLAR_STATUS_SYNC_INTERVAL", "30s");
-
-        let config = Config::from_env().unwrap();
-
-        assert_eq!(config.app_name, env!("CARGO_PKG_NAME"));
-        assert_eq!(config.app_version, env!("CARGO_PKG_VERSION"));
-        assert_eq!(config.app_log, "debug");
-        assert_eq!(config.app_log_style, "auto");
-        assert_eq!(config.solarlog_url.as_str(), "http://localhost:8080/");
-        assert_eq!(config.solarlog_password, "test_password");
-        assert_eq!(config.homeassistant_url.as_str(), "http://localhost:8001/");
-        assert_eq!(config.homeassistant_token, "test_token");
-        assert_eq!(config.solar_power_sync_interval, Duration::from_secs(10));
-        assert_eq!(config.solar_energy_sync_interval, Duration::from_secs(20));
-        assert_eq!(config.solar_status_sync_interval, Duration::from_secs(30));
-
-        clear_env("APP_LOG");
-        clear_env("APP_LOG_STYLE");
-        clear_env("SOLARLOG_URL");
-        clear_env("SOLARLOG_PASSWORD");
-        clear_env("HOMEASSISTANT_URL");
-        clear_env("HOMEASSISTANT_TOKEN");
-        clear_env("SOLAR_POWER_SYNC_INTERVAL");
-        clear_env("SOLAR_ENERGY_SYNC_INTERVAL");
-        clear_env("SOLAR_STATUS_SYNC_INTERVAL");
+        with_vars(
+            [
+                ("APP_LOG", Some("debug")),
+                ("APP_LOG_STYLE", Some("auto")),
+                ("SOLARLOG_URL", Some("http://localhost:8080")),
+                ("SOLARLOG_PASSWORD", Some("test_password")),
+                ("HOMEASSISTANT_URL", Some("http://localhost:8001")),
+                ("HOMEASSISTANT_TOKEN", Some("test_token")),
+                ("SOLAR_POWER_SYNC_INTERVAL", Some("10s")),
+                ("SOLAR_ENERGY_SYNC_INTERVAL", Some("20s")),
+                ("SOLAR_STATUS_SYNC_INTERVAL", Some("30s")),
+            ],
+            || {
+                let config = Config::from_env().unwrap();
+                assert_eq!(config.app_name, env!("CARGO_PKG_NAME"));
+                assert_eq!(config.app_version, env!("CARGO_PKG_VERSION"));
+                assert_eq!(config.app_log, "debug");
+                assert_eq!(config.app_log_style, "auto");
+                assert_eq!(config.solarlog_url.as_str(), "http://localhost:8080/");
+                assert_eq!(config.solarlog_password, "test_password");
+                assert_eq!(config.homeassistant_url.as_str(), "http://localhost:8001/");
+                assert_eq!(config.homeassistant_token, "test_token");
+                assert_eq!(config.solar_power_sync_interval, Duration::from_secs(10));
+                assert_eq!(config.solar_energy_sync_interval, Duration::from_secs(20));
+                assert_eq!(config.solar_status_sync_interval, Duration::from_secs(30));
+            },
+        );
     }
 
     #[test]
     fn test_configure_logger() {
-        set_env("APP_LOG", "debug");
-        configure_logger();
-        let log_level = log::max_level();
-        assert_eq!(log_level, log::LevelFilter::Debug);
-        clear_env("APP_LOG");
+        with_var("APP_LOG", Some("debug"), || {
+            configure_logger();
+            let log_level = log::max_level();
+            assert_eq!(log_level, log::LevelFilter::Debug);
+        });
     }
 }
