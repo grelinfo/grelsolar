@@ -8,7 +8,6 @@ pub async fn app() -> Result<(), anyhow::Error> {
     dotenvy::dotenv().ok();
     configure_logger();
     let config = Config::init_from_env()?;
-    log::debug!("Configuration: {config:#?}");
     let container = Container::new(&config);
     log::info!("{} (v{}) started", config.app_name, config.app_version);
     container.solar_service.run().await;

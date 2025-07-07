@@ -1,10 +1,9 @@
 //! Application configuration loaded from environment variables.
-
 use envconfig::Envconfig;
 use humantime::Duration;
 use reqwest::Url;
 
-#[derive(Envconfig, Debug)]
+#[derive(Envconfig)]
 pub struct Config {
     #[envconfig(from = "APP_NAME", default = "grelsolar")]
     pub app_name: String,
