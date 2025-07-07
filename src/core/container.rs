@@ -25,9 +25,9 @@ impl Container {
             services::SolarBridgeBackgroundService::new(
                 Arc::clone(&solarlog),
                 Arc::clone(&homeassistant),
-                config.solar_power_sync_interval,
-                config.solar_energy_sync_interval,
-                config.solar_status_sync_interval,
+                config.sync_power_interval.into(),
+                config.sync_energy_interval.into(),
+                config.sync_status_interval.into(),
             )
         });
         Self { solar_service }
@@ -49,9 +49,9 @@ mod tests {
             solarlog_password: "pw".into(),
             homeassistant_url: reqwest::Url::parse("http://localhost:5678").unwrap(),
             homeassistant_token: "token".into(),
-            solar_power_sync_interval: std::time::Duration::from_secs(1),
-            solar_energy_sync_interval: std::time::Duration::from_secs(1),
-            solar_status_sync_interval: std::time::Duration::from_secs(1),
+            sync_power_interval: std::time::Duration::from_secs(5).into(),
+            sync_energy_interval: std::time::Duration::from_secs(1).into(),
+            sync_status_interval: std::time::Duration::from_secs(1).into(),
         };
         let _container = Container::new(&config);
     }

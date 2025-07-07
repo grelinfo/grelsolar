@@ -10,9 +10,9 @@ use crate::integration::{homeassistant, solarlog};
 pub struct SolarBridgeBackgroundService {
     solarlog: Arc<solarlog::Client>,
     homeassistant: Arc<homeassistant::Client>,
-    power_period: Duration,
-    energy_period: Duration,
-    status_period: Duration,
+    sync_power_interval: Duration,
+    sync_energy_interval: Duration,
+    sync_status_interval: Duration,
 }
 
 impl SolarBridgeBackgroundService {
@@ -20,25 +20,25 @@ impl SolarBridgeBackgroundService {
     pub fn new(
         solarlog: Arc<solarlog::Client>,
         homeassistant: Arc<homeassistant::Client>,
-        power_period: Duration,
-        energy_period: Duration,
-        status_period: Duration,
+        sync_power_interval: Duration,
+        sync_energy_interval: Duration,
+        sync_status_interval: Duration,
     ) -> Self {
         SolarBridgeBackgroundService {
             solarlog,
             homeassistant,
-            power_period,
-            energy_period,
-            status_period,
+            sync_power_interval,
+            sync_energy_interval,
+            sync_status_interval,
         }
     }
 
     /// Run the background service to synchronize data between SolarLog and Home Assistant.
     pub async fn run(&self) {
         tokio::join!(
-            self.sync_solar_power_task(self.power_period),
-            self.sync_solar_energy_task(self.energy_period),
-            self.sync_solar_status_task(self.status_period)
+            self.sync_solar_power_task(self.sync_power_interval),
+            self.sync_solar_energy_task(self.sync_energy_interval),
+            self.sync_solar_status_task(self.sync_status_interval)
         );
     }
 
