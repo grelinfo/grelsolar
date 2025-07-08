@@ -1,4 +1,6 @@
 //! grelsolar - A Rust application for solar energy management
+//! The application is small enough to run on a single thread,
+//! making it suitable for low-resource environments.
 
 use grelsolar::app;
 
