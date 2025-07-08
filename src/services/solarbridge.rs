@@ -115,10 +115,7 @@ impl SolarBridgeBackgroundService {
         if last_value == Some(value) {
             return Ok(Some(value));
         }
-        let day_midnight = Self::day_midnight(&value.0);
-        self.homeassistant
-            .set_solar_energy(value.1, &day_midnight)
-            .await?;
+        self.set_solar_energy(value).await?;
         Ok(Some(value))
     }
 
@@ -134,6 +131,13 @@ impl SolarBridgeBackgroundService {
         let status_str = status.to_string();
         self.homeassistant.set_solar_status(&status_str).await?;
         Ok(Some(status))
+    }
+
+    async fn set_solar_energy(&self, value: (NaiveDate, i64)) -> Result<(), homeassistant::Error> {
+        let day_midnight = Self::day_midnight(&value.0);
+        self.homeassistant
+            .set_solar_energy(value.1, &day_midnight)
+            .await
     }
 
     pub fn day_midnight(day: &NaiveDate) -> DateTime<chrono::Local> {
