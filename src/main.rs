@@ -2,7 +2,7 @@
 
 use grelsolar::app;
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
     if let Err(e) = app().await {
         eprintln!("Application error: {e:?}");
