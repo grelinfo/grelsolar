@@ -64,19 +64,13 @@ impl SolarBridgeBackgroundService {
     /// # Arguments
     /// * `period` - The interval at which to poll SolarLog for inverter status data.
     async fn sync_solar_energy_task(&self, period: Duration) {
-        let mut last_energy_today = None;
-        let mut last_day = chrono::Local::now().date_naive();
+        let mut last_value: Option<(NaiveDate, i64)> = None;
         let mut interval = interval(period);
 
         loop {
             interval.tick().await;
-            let day = chrono::Local::now().date_naive();
-            if day != last_day {
-                last_day = day;
-                last_energy_today = None; // Reset energy for a new day
-            }
-            match self.sync_solar_energy(day, last_energy_today).await {
-                Ok(energy) => last_energy_today = energy,
+            match self.sync_solar_energy(last_value).await {
+                Ok(energy) => last_value = energy,
                 Err(e) => log::error!("Error syncing solar energy: {e}"),
             }
         }
@@ -115,18 +109,17 @@ impl SolarBridgeBackgroundService {
     /// Synchronizes the solar energy produced today with Home Assistant.
     pub async fn sync_solar_energy(
         &self,
-        day: NaiveDate,
-        last_energy_today: Option<i64>,
-    ) -> Result<Option<i64>, anyhow::Error> {
-        let energy = self.solarlog.get_energy_of_day(day).await?;
-        if last_energy_today == Some(energy) {
-            return Ok(Some(energy));
+        last_value: Option<(NaiveDate, i64)>,
+    ) -> Result<Option<(NaiveDate, i64)>, anyhow::Error> {
+        let value = self.solarlog.get_energy_of_last_day().await?;
+        if last_value == Some(value) {
+            return Ok(Some(value));
         }
-        let day_midnight = Self::day_midnight(&day);
+        let day_midnight = Self::day_midnight(&value.0);
         self.homeassistant
-            .set_solar_energy(energy, &day_midnight)
+            .set_solar_energy(value.1, &day_midnight)
             .await?;
-        Ok(Some(energy))
+        Ok(Some(value))
     }
 
     /// Synchronizes the SolarLog device status with Home Assistant.

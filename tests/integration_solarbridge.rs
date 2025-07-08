@@ -126,11 +126,11 @@ async fn test_sync_solar_energy() {
         .mock_set_solar_energy(energy_kwh, &last_reset)
         .await;
 
-    let result = service.sync_solar_energy(day, None).await;
+    let result = service.sync_solar_energy(None).await;
 
     solarlog_mock.assert_async().await;
     homeassistant_mock.assert_async().await;
-    assert_eq!(result.unwrap(), Some(expected));
+    assert_eq!(result.unwrap(), Some((day, expected)));
 }
 
 #[tokio::test]
@@ -144,11 +144,11 @@ async fn test_sync_solar_energy_no_change() {
         .await;
 
     // Second sync should not change anything
-    let result = service.sync_solar_energy(day, Some(expected)).await;
+    let result = service.sync_solar_energy(Some((day, expected))).await;
 
     solarlog_mock.assert_async().await;
     assert_eq!(homeassistant_mock.hits_async().await, 0);
-    assert_eq!(result.unwrap(), Some(expected));
+    assert_eq!(result.unwrap(), Some((day, expected)));
 }
 
 #[tokio::test]

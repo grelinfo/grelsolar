@@ -147,11 +147,18 @@ impl Client {
         Self::extract_inverter_status(&json_value)
     }
 
-    /// Get the energy produced or consumed during the current day in watt-hours (Wh).
+    /// Get the energy produced or consumed during the specified day in watt-hours (Wh).
     pub async fn get_energy_of_day(&self, day: NaiveDate) -> Result<i64> {
         let query = Self::create_inverter_query(DAILY_ENERGY, 0);
         let json_value = self.http.query(&query).await?;
         Self::extract_energy_of_day(&json_value, day)
+    }
+
+    /// Get the energy produced or consumed during of last day (today) in watt-hours (Wh).
+    pub async fn get_energy_of_last_day(&self) -> Result<(NaiveDate, i64)> {
+        let query = Self::create_inverter_query(DAILY_ENERGY, 0);
+        let json_value = self.http.query(&query).await?;
+        Self::extract_energy_of_last_day(&json_value)
     }
 
     /// Get the energy produced or consumed during the current month in watt-hours (Wh).
@@ -170,6 +177,23 @@ impl Client {
     fn extract_energy_of_day(json_value: &Value, day: NaiveDate) -> Result<i64> {
         let day_string = day.format("%d.%m.%y").to_string();
         Self::extract_inverter_value_by_id_as_i64(json_value, DAILY_ENERGY, 0, &day_string)
+    }
+
+    /// Extract the energy of the last day.
+    fn extract_energy_of_last_day(json_value: &Value) -> Result<(NaiveDate, i64)> {
+        json_value
+            .get(DAILY_ENERGY)
+            .and_then(|v| v.get("0")?.as_array())
+            .and_then(|arr| arr.last())
+            .and_then(|entry| {
+                let date_str = entry
+                    .get(0)?
+                    .as_str()
+                    .and_then(|s| NaiveDate::parse_from_str(s, "%d.%m.%y").ok())?;
+                let wh = entry.get(1)?.as_array()?.first()?.as_i64()?;
+                Some((date_str, wh))
+            })
+            .ok_or_else(|| Error::ValueParseError("cannot extract last day and energy".to_string()))
     }
 
     /// Extract the energy for the current month.
@@ -248,6 +272,7 @@ impl Client {
         Ok(value)
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -432,6 +457,49 @@ mod tests {
         );
         let result = Client::extract_energy_of_day(&json, day).expect("cannot extract energy");
         assert_eq!(result, 510);
+    }
+
+    #[test]
+    fn test_extract_energy_of_last_day() {
+        let json = serde_json::json!(
+            {
+                    "777": {
+                        "0": [
+                        ["01.06.25", [21700]],
+                        ["02.06.25", [9550]],
+                        ["03.06.25", [23300]],
+                        ["04.06.25", [10790]],
+                        ["05.06.25", [18550]],
+                        ["06.06.25", [16720]],
+                        ["07.06.25", [11040]],
+                        ["08.06.25", [22760]],
+                        ["09.06.25", [27600]],
+                        ["10.06.25", [25550]],
+                        ["11.06.25", [27330]],
+                        ["12.06.25", [27250]],
+                        ["13.06.25", [26890]],
+                        ["14.06.25", [26300]],
+                        ["15.06.25", [20500]],
+                        ["16.06.25", [26360]],
+                        ["17.06.25", [28800]],
+                        ["18.06.25", [27390]],
+                        ["19.06.25", [27540]],
+                        ["20.06.25", [27560]],
+                        ["21.06.25", [18850]],
+                        ["22.06.25", [27870]],
+                        ["23.06.25", [21030]],
+                        ["24.06.25", [28430]],
+                        ["25.06.25", [510]]
+                        ]
+                    }
+                }
+        );
+
+        let (date, energy) =
+            Client::extract_energy_of_last_day(&json).expect("cannot extract last day energy");
+
+        assert_eq!(date, NaiveDate::from_ymd_opt(2025, 6, 25).unwrap());
+        assert_eq!(energy, 510);
     }
 
     #[test]
