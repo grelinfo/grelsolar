@@ -1,10 +1,10 @@
 //! grelsolar - A Rust application for solar energy management
-//! The application is small enough to run on a single thread,
+//! The application is small enough to run on a single worker thread,
 //! making it suitable for low-resource environments.
 
 use grelsolar::app;
 
-#[tokio::main(flavor = "current_thread")]
+#[tokio::main(flavor = "multi_thread", worker_threads = 1)]
 async fn main() {
     if let Err(e) = app().await {
         eprintln!("Application error: {e:?}");
