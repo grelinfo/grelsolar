@@ -5,12 +5,14 @@ use envconfig::Envconfig;
 use grelsolar::core::config::{Config, configure_logger};
 use grelsolar::server::server;
 use tokio::signal;
+use tokio::time::{Duration, timeout};
 use tokio_util::sync::CancellationToken;
 
 enum ExitCode {
     Success = 0,
     RuntimeError = 1,
     ConfigError = 2,
+    ShutdownError = 3,
 }
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 1)]
@@ -53,14 +55,20 @@ async fn main() {
     }
     shutdown_token.cancel();
 
-    match app.await {
-        Ok(()) => {
-            log::info!("Graceful shutdown completed");
-            std::process::exit(ExitCode::Success as i32);
-        }
-        Err(e) => {
-            log::error!("Application crashed: {e}");
-            std::process::exit(ExitCode::RuntimeError as i32);
+    match timeout(Duration::from_secs(30), app).await {
+        Ok(join_result) => match join_result {
+            Ok(()) => {
+                log::info!("Graceful shutdown completed");
+                std::process::exit(ExitCode::Success as i32);
+            }
+            Err(e) => {
+                log::error!("Application crashed: {e}");
+                std::process::exit(ExitCode::RuntimeError as i32);
+            }
+        },
+        Err(_) => {
+            log::error!("Shutdown timed out after 30 seconds");
+            std::process::exit(ExitCode::ShutdownError as i32);
         }
     }
 }
