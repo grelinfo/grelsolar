@@ -208,11 +208,11 @@ impl HttpClient {
         self.client
             .post(url)
             .header("cookie", format!("SolarLog={token}"))
+            .header("content-length", 0)
             .send()
             .await?
             .error_for_status()
             .map_err(Error::RequestFailed)?;
-        log::debug!("Logout successful");
         Ok(())
     }
 
