@@ -16,39 +16,28 @@ A Rust application for bridging SolarLog and Home Assistant, providing solar pow
 - Configurable polling periods and endpoints
 - Docker-ready and CI/CD enabled
 
-## Development
+## Contributing
 
-### Prerequisites
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, and contribution guidelines.
 
-- Rust toolchain (see [rustup.rs](https://rustup.rs/))
-- Docker (optional, for containerized deployment)
-
-### Installation
-
-Install dependencies and build:
-```sh
-make setup
-cargo build --release
-```
-
-### Configuration
+## Configuration
 
 Copy the example environment file and edit as needed:
 ```sh
 cp .env.example .env
 ```
 
-Edit `.env` to set your SolarLog and Home Assistant credentials and endpoints.
+Set the following environment variables (for both native and Docker usage):
 
-#### Example `.env` file:
-```dotenv
-APP_LOG=info
-APP_LOG_STYLE=always
-SOLARLOG_URL=http://192.168.1.2
-SOLARLOG_PASSWORD=your_solarlog_password
-HOMEASSISTANT_URL=http://homeassistant.local:8123
-HOMEASSISTANT_TOKEN=your_long_lived_token
-```
+| Variable                  | Description                        | Example                        |
+|---------------------------|------------------------------------|--------------------------------|
+| `SOLARLOG_URL`            | URL of your SolarLog device        | `http://192.168.1.10`          |
+| `SOLARLOG_PASSWORD`       | Password for SolarLog              | `secret`                       |
+| `HOMEASSISTANT_URL`       | URL of Home Assistant API          | `http://192.168.1.20:8123`     |
+| `HOMEASSISTANT_TOKEN`     | Long-lived access token            | `eyJ0eXAiOiJKV1QiLCJhbGci...`  |
+| `SYNC_POWER_INTERVAL`     | Power sync interval (default: 5s)  | `10s`                          |
+| `SYNC_ENERGY_INTERVAL`    | Energy sync interval (default: 60s)| `120s`                         |
+| `SYNC_STATUS_INTERVAL`    | Status sync interval (default: 60s)| `60s`                          |
 
 ### Running
 
@@ -57,19 +46,37 @@ HOMEASSISTANT_TOKEN=your_long_lived_token
 cargo run --release
 ```
 
-#### Docker
-Build and run the Docker image:
+#### Docker (Recommended)
+
 ```sh
-docker build -t grelsolar .
-docker run --env-file .env grelsolar
+docker run --rm \
+  -e SOLARLOG_URL="http://your-solarlog" \
+  -e SOLARLOG_PASSWORD="your_password" \
+  -e HOMEASSISTANT_URL="http://your-homeassistant" \
+  -e HOMEASSISTANT_TOKEN="your_token" \
+  grelinfo/grelsolar:latest
 ```
 
-## CI/CD
-- Automated tests and linting via GitHub Actions
-- Release workflow builds and pushes Docker images to Docker Hub
+##### Example: Docker Compose
+
+```yaml
+services:
+  grelsolar:
+    image: grelinfo/grelsolar:latest
+    restart: unless-stopped
+    environment:
+      SOLARLOG_URL: "http://192.168.1.10"
+      SOLARLOG_PASSWORD: "secret"
+      HOMEASSISTANT_URL: "http://192.168.1.20:8123"
+      HOMEASSISTANT_TOKEN: "your_token"
+```
 
 ## Changelog
+
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## License
-MIT
+
+The grelsolar project is dual-licensed (see [LICENSE.md](LICENSE.md)):
+- Apache License, Version 2.0
+- MIT license
