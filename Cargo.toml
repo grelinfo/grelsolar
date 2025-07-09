@@ -1,6 +1,6 @@
 [package]
 name = "grelsolar"
-version = "0.1.1-pre.39+29a636e"
+version = "0.0.0" # Updated in CI
 edition = "2024"
 license = "MIT"
 authors = ["Loïc Gremaud <loic.gremaud@grelinfo.ch>"]
@@ -26,7 +26,7 @@ serde_json = "1.0.140"
 strum = "0.27.1"
 strum_macros = "0.27.1"
 thiserror = "2.0.12"
-tokio = { version = "1.45.1", features = ["full"] }
+tokio = { version = "1.46.1", features = ["full"] }
 tokio-retry = "0.3.0"
 tokio-util = "0.7.15"
 
