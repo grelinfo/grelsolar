@@ -1,7 +1,8 @@
-//! Application Core
+//! grelsolar core
 
-mod app;
-mod config;
-mod container;
+pub mod config;
+pub mod container;
 
-pub use app::app;
+pub use config::APP_NAME;
+pub use config::APP_VERSION;
+pub use config::Config;

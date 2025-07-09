@@ -6,6 +6,7 @@ use grelsolar::integration::solarlog::{self, Client as SolarLogClient};
 use grelsolar::services::solarbridge::SolarBridgeBackgroundService;
 use std::sync::Arc;
 use tokio::time::Duration;
+use tokio_util::sync::CancellationToken;
 
 mod mockserver_homeassistant;
 mod mockserver_solarlog;
@@ -174,11 +175,12 @@ async fn test_service_run_starts_and_polls() {
         .mock_set_solar_energy(energy_kwh, &last_reset)
         .await;
 
-    // Run the service for a short time
+    let cancel_token = CancellationToken::new();
+
     let service_handle = tokio::spawn(async move {
         // Run for a short period, then exit
         tokio::select! {
-            _ = service.run() => {},
+            _ = service.run(cancel_token) => {},
             _ = tokio::time::sleep(std::time::Duration::from_millis(10)) => {},
         }
     });

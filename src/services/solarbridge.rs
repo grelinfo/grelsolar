@@ -4,6 +4,7 @@
 use chrono::{DateTime, NaiveDate};
 use std::sync::Arc;
 use tokio::time::{Duration, interval};
+use tokio_util::sync::CancellationToken;
 
 use crate::integration::{homeassistant, solarlog};
 
@@ -34,11 +35,11 @@ impl SolarBridgeBackgroundService {
     }
 
     /// Run the background service to synchronize data between SolarLog and Home Assistant.
-    pub async fn run(&self) {
+    pub async fn run(&self, token: CancellationToken) {
         tokio::join!(
-            self.sync_solar_power_task(self.sync_power_interval),
-            self.sync_solar_energy_task(self.sync_energy_interval),
-            self.sync_solar_status_task(self.sync_status_interval)
+            self.sync_solar_power_task(self.sync_power_interval, token.clone()),
+            self.sync_solar_energy_task(self.sync_energy_interval, token.clone()),
+            self.sync_solar_status_task(self.sync_status_interval, token.clone())
         );
     }
 
@@ -46,12 +47,18 @@ impl SolarBridgeBackgroundService {
     /// This method runs in a loop, polling the SolarLog API at the specified interval.
     /// # Arguments
     /// * `period` - The interval at which to poll SolarLog for current power data.
-    async fn sync_solar_power_task(&self, period: Duration) {
+    async fn sync_solar_power_task(&self, period: Duration, token: CancellationToken) {
         let mut last_power = None;
         let mut interval = interval(period);
 
         loop {
-            interval.tick().await;
+            tokio::select! {
+                _ = interval.tick() => {},
+                _ = token.cancelled() => {
+                    log::debug!("sync_solar_power_task: shutting down");
+                    return;
+                }
+            }
             match self.sync_solar_power(last_power).await {
                 Ok(power) => last_power = power,
                 Err(e) => log::error!("Error syncing solar power: {e}"),
@@ -63,12 +70,18 @@ impl SolarBridgeBackgroundService {
     /// This method runs in a loop, polling the SolarLog API at the specified interval.
     /// # Arguments
     /// * `period` - The interval at which to poll SolarLog for inverter status data.
-    async fn sync_solar_energy_task(&self, period: Duration) {
+    async fn sync_solar_energy_task(&self, period: Duration, token: CancellationToken) {
         let mut last_value: Option<(NaiveDate, i64)> = None;
         let mut interval = interval(period);
 
         loop {
-            interval.tick().await;
+            tokio::select! {
+                _ = interval.tick() => {},
+                _ = token.cancelled() => {
+                    log::debug!("sync_solar_energy_task: shutting down");
+                    return;
+                }
+            }
             match self.sync_solar_energy(last_value).await {
                 Ok(energy) => last_value = energy,
                 Err(e) => log::error!("Error syncing solar energy: {e}"),
@@ -80,11 +93,17 @@ impl SolarBridgeBackgroundService {
     /// This method runs in a loop, polling the SolarLog API at the specified interval.
     /// # Arguments
     /// * `period` - The interval at which to poll SolarLog for inverter status data.
-    async fn sync_solar_status_task(&self, period: Duration) {
+    async fn sync_solar_status_task(&self, period: Duration, token: CancellationToken) {
         let mut last_status: Option<solarlog::InverterStatus> = None;
         let mut interval = interval(period);
         loop {
-            interval.tick().await;
+            tokio::select! {
+                _ = interval.tick() => {},
+                _ = token.cancelled() => {
+                    log::debug!("sync_solar_status_task: shutting down");
+                    return;
+                }
+            }
             match self.sync_solar_status(last_status.as_ref()).await {
                 Ok(status) => last_status = status,
                 Err(e) => log::error!("Error syncing solar status: {e}"),

@@ -897,6 +897,7 @@ dependencies = [
  "thiserror 2.0.12",
  "tokio",
  "tokio-retry",
+ "tokio-util",
 ]
 
 [[package]]

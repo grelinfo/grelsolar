@@ -1,7 +1,6 @@
 //! grelsolar - A Rust application for solar energy management
 
-mod core;
+pub mod core;
 pub mod integration;
+pub mod server;
 pub mod services;
-
-pub use core::app;

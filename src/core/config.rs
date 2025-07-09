@@ -1,14 +1,15 @@
 //! Application configuration loaded from environment variables.
+use std::env;
+
 use envconfig::Envconfig;
 use humantime::Duration;
 use reqwest::Url;
 
+pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const APP_NAME: &str = env!("CARGO_PKG_NAME");
+
 #[derive(Envconfig)]
 pub struct Config {
-    #[envconfig(from = "APP_NAME", default = "grelsolar")]
-    pub app_name: String,
-    #[envconfig(from = "APP_VERSION", default = "0.1.0")]
-    pub app_version: String,
     #[allow(dead_code)]
     #[envconfig(from = "APP_LOG", default = "error")]
     pub app_log: String,
