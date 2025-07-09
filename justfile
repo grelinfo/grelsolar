@@ -54,13 +54,11 @@ export CARGO_TERM_COLOR := "always"
 
 # Get the current version
 @version:
-    git fetch --tags
-    uvx dunamai from git --tag-branch main --pattern default-unprefixed --bump --style semver
+    uvx dunamai from git --pattern default-unprefixed --bump --style semver
 
 # Get Docker-compatible version (without + character)
 @docker-version:
-    git fetch --tags
-    uvx dunamai from git --tag-branch main --pattern default-unprefixed --bump --style semver | sed 's/+/-/g'
+    uvx dunamai from git --pattern default-unprefixed --bump --style semver | sed 's/+/-/g'
 
 # Build Docker image
 @docker-build:
