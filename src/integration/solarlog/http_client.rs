@@ -25,6 +25,9 @@ impl HttpClient {
     /// Creates a new instance of `HttpClient`.
     pub fn new(url: Url, password: String) -> Self {
         let client = Client::builder()
+            .pool_idle_timeout(Duration::from_secs(30)) // 30 seconds idle timeout
+            .pool_max_idle_per_host(2) // Maximum 2 idle connections per host
+            .timeout(Duration::from_millis(500)) // 0.5 seconds timeout
             .timeout(Duration::from_millis(500)) // 0.5 seconds timeout
             .build()
             .expect("Failed to create HTTP client");
