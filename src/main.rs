@@ -31,8 +31,26 @@ async fn main() {
 
     let app = tokio::spawn(async move { server(config, server_shutdown_token).await });
 
-    signal::ctrl_c().await.expect("Failed to listen for Ctrl+C");
-    log::info!("Received Ctrl+C, waiting for graceful shutdown...");
+    // Wait for either Ctrl+C or SIGTERM, then trigger shutdown
+    tokio::select! {
+        _ = signal::ctrl_c() => {
+            log::info!("Received Ctrl+C, initiating graceful shutdown...");
+        }
+        _ = async {
+            #[cfg(unix)]
+            {
+                let mut sigterm = signal::unix::signal(signal::unix::SignalKind::terminate())
+                    .expect("Failed to create terminate signal");
+                sigterm.recv().await;
+            }
+            #[cfg(not(unix))]
+            {
+                std::future::pending::<()>().await;
+            }
+        } => {
+            log::info!("Received SIGTERM, initiating graceful shutdown...");
+        }
+    }
     shutdown_token.cancel();
 
     match app.await {
