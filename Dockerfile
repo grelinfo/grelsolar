@@ -1,4 +1,4 @@
-FROM rust:1.88 AS builder
+FROM rust:1.89 AS builder
 WORKDIR /app
 
 # Copy dependency information first
