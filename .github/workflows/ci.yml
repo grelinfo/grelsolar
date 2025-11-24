@@ -13,7 +13,7 @@ jobs:
       BUILD_VERSION: ${{ steps.build_version.outputs.BUILD_VERSION }}
       DOCKER_VERSION: ${{ steps.docker_version.outputs.DOCKER_VERSION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
@@ -38,7 +38,7 @@ jobs:
       BUILD_VERSION: ${{ needs.version.outputs.BUILD_VERSION }}
       DOCKER_VERSION: ${{ needs.version.outputs.DOCKER_VERSION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -87,7 +87,7 @@ jobs:
       BUILD_VERSION: ${{ needs.version.outputs.BUILD_VERSION }}
       DOCKER_VERSION: ${{ needs.version.outputs.DOCKER_VERSION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -110,7 +110,7 @@ jobs:
       BUILD_VERSION: ${{ needs.version.outputs.BUILD_VERSION }}
       DOCKER_VERSION: ${{ needs.version.outputs.DOCKER_VERSION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
@@ -136,7 +136,7 @@ jobs:
       BUILD_VERSION: ${{ needs.version.outputs.BUILD_VERSION }}
       DOCKER_VERSION: ${{ needs.version.outputs.DOCKER_VERSION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
