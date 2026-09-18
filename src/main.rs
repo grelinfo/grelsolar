@@ -31,10 +31,19 @@ async fn main() {
     let shutdown_token = CancellationToken::new();
     let server_shutdown_token = shutdown_token.clone();
 
-    let app = tokio::spawn(async move { server(config, server_shutdown_token).await });
+    let mut app = tokio::spawn(async move { server(config, server_shutdown_token).await });
 
-    // Wait for either Ctrl+C or SIGTERM, then trigger shutdown
+    // Wait for either Ctrl+C or SIGTERM, then trigger shutdown.
+    // The app only stops on shutdown, so if it stops first it has crashed:
+    // exit with an error so that the container gets restarted.
     tokio::select! {
+        result = &mut app => {
+            match result {
+                Ok(()) => log::error!("Application stopped unexpectedly"),
+                Err(e) => log::error!("Application crashed: {e}"),
+            }
+            std::process::exit(ExitCode::RuntimeError as i32);
+        }
         _ = signal::ctrl_c() => {
             log::info!("Received Ctrl+C, initiating graceful shutdown...");
         }
