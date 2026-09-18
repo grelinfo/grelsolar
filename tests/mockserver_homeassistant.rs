@@ -67,6 +67,20 @@ impl HomeAssistantMockServer {
             .await
     }
 
+    /// Mock setting a sensor to `unavailable`, whatever its attributes.
+    pub async fn mock_set_unavailable<'a>(&'a self, entity_id: &str) -> Mock<'a> {
+        let path = format!("/api/states/{entity_id}");
+        self.server
+            .mock_async(move |when, then| {
+                when.method(POST)
+                    .path(path)
+                    .header("Authorization", format!("Bearer {}", self.token()))
+                    .json_body_includes(r#"{"state": "unavailable"}"#);
+                then.status(200);
+            })
+            .await
+    }
+
     /// Mock the set state for solar power with sample request/response.
     pub async fn mock_set_solar_power<'a>(&'a self, power: i64) -> Mock<'a> {
         self.server

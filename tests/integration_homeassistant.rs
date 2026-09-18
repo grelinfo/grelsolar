@@ -82,3 +82,25 @@ async fn test_client_with_server_error(#[future] client_server: (Client, HomeAss
         "circuit breaker should reject the request due to repeated failures"
     );
 }
+
+#[rstest]
+#[case("sensor.solar_power")]
+#[case("sensor.solar_energy")]
+#[case("sensor.solar_status")]
+#[tokio::test]
+async fn test_client_set_unavailable(
+    #[future] client_server: (Client, HomeAssistantMockServer),
+    #[case] entity_id: &str,
+) {
+    let (client, server) = client_server.await;
+    let mock = server.mock_set_unavailable(entity_id).await;
+
+    let result = match entity_id {
+        "sensor.solar_power" => client.set_solar_current_power_unavailable().await,
+        "sensor.solar_energy" => client.set_solar_energy_unavailable().await,
+        _ => client.set_solar_status_unavailable().await,
+    };
+
+    mock.assert_async().await;
+    assert!(result.is_ok());
+}

@@ -5,6 +5,10 @@ use super::Result;
 use super::http_client::HttpClient;
 use super::schemas::StateCreateOrUpdate;
 use reqwest::Url;
+
+/// State of a sensor whose source cannot be reached.
+const UNAVAILABLE: &str = "unavailable";
+
 pub struct Client {
     http: HttpClient,
 }
@@ -35,6 +39,32 @@ impl Client {
         let state = Self::create_solar_status_state(status);
         self.http.set_state("sensor.solar_status", &state).await?;
         Ok(())
+    }
+
+    /// Mark the solar energy sensor as unavailable in Home Assistant.
+    pub async fn set_solar_energy_unavailable(&self) -> Result<()> {
+        let state = Self::unavailable(Self::create_solar_energy_state(0));
+        self.http.set_state("sensor.solar_energy", &state).await
+    }
+
+    /// Mark the solar power sensor as unavailable in Home Assistant.
+    pub async fn set_solar_current_power_unavailable(&self) -> Result<()> {
+        let state = Self::unavailable(Self::create_solar_current_power_state(0));
+        self.http.set_state("sensor.solar_power", &state).await
+    }
+
+    /// Mark the solar status sensor as unavailable in Home Assistant.
+    pub async fn set_solar_status_unavailable(&self) -> Result<()> {
+        let state = Self::unavailable(Self::create_solar_status_state(""));
+        self.http.set_state("sensor.solar_status", &state).await
+    }
+
+    /// Replace the value of a state with `unavailable`, keeping its attributes.
+    fn unavailable(state: StateCreateOrUpdate) -> StateCreateOrUpdate {
+        StateCreateOrUpdate {
+            state: UNAVAILABLE.to_string(),
+            ..state
+        }
     }
 
     /// Create current power state for solar status.
@@ -148,6 +178,19 @@ mod tests {
         let state = Client::create_solar_energy_state(energy_today);
 
         assert_eq!(state, expected);
+    }
+
+    #[test]
+    fn test_unavailable_keeps_attributes() {
+        let state = Client::create_solar_current_power_state(1234);
+
+        let unavailable = Client::unavailable(state);
+
+        assert_eq!(unavailable.state, "unavailable");
+        assert_eq!(
+            unavailable.attributes,
+            Client::create_solar_current_power_state(0).attributes
+        );
     }
 
     #[rstest]
