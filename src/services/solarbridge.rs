@@ -1,7 +1,7 @@
 //! Solar Bridge Background Service.
 //! This service bridges SolarLog and Home Assistant, enabling automatic synchronization of solar production data between the two systems.
 
-use chrono::{DateTime, NaiveDate};
+use chrono::NaiveDate;
 use std::sync::Arc;
 use tokio::time::{Duration, Instant, interval};
 use tokio_util::sync::CancellationToken;
@@ -144,7 +144,7 @@ impl SolarBridgeBackgroundService {
         if last_value == Some(value) {
             return Ok(Some(value));
         }
-        self.set_solar_energy(value).await?;
+        self.homeassistant.set_solar_energy(value.1).await?;
         Ok(Some(value))
     }
 
@@ -161,21 +161,6 @@ impl SolarBridgeBackgroundService {
         self.homeassistant.set_solar_status(&status_str).await?;
         Ok(Some(status))
     }
-
-    async fn set_solar_energy(&self, value: (NaiveDate, i64)) -> Result<(), homeassistant::Error> {
-        let day_midnight = Self::day_midnight(&value.0);
-        self.homeassistant
-            .set_solar_energy(value.1, &day_midnight)
-            .await
-    }
-
-    pub fn day_midnight(day: &NaiveDate) -> DateTime<chrono::Local> {
-        day.and_hms_opt(0, 0, 0)
-            .expect("invalid time")
-            .and_local_timezone(chrono::Local)
-            .single()
-            .expect("ambiguous timezone")
-    }
 }
 
 /// Forget the last synced value once `STATE_REFRESH_INTERVAL` has elapsed,
@@ -189,22 +174,7 @@ fn expire<T>(last: &mut Option<T>, refreshed_at: &mut Instant) {
 
 #[cfg(test)]
 mod tests {
-    use super::{Instant, STATE_REFRESH_INTERVAL, SolarBridgeBackgroundService, expire};
-    use chrono::{Datelike, NaiveDate, Timelike};
-
-    #[test]
-    fn test_day_midnight() {
-        let static_date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
-        let midnight = SolarBridgeBackgroundService::day_midnight(&static_date);
-
-        assert_eq!(midnight.year(), 2024);
-        assert_eq!(midnight.month(), 6);
-        assert_eq!(midnight.day(), 1);
-        assert_eq!(midnight.hour(), 0);
-        assert_eq!(midnight.minute(), 0);
-        assert_eq!(midnight.second(), 0);
-        assert_eq!(midnight.nanosecond(), 0);
-    }
+    use super::{Instant, STATE_REFRESH_INTERVAL, expire};
 
     #[tokio::test(start_paused = true)]
     async fn test_expire_keeps_value_before_refresh_interval() {

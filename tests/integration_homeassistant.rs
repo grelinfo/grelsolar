@@ -1,6 +1,5 @@
 //! Integration tests for the Home Assistant client.
 use crate::mockserver_homeassistant::HomeAssistantMockServer;
-use chrono::TimeZone;
 use grelsolar::integration::homeassistant::{Client, Error};
 use rstest::fixture;
 use rstest::*;
@@ -26,12 +25,11 @@ async fn client_server() -> (Client, HomeAssistantMockServer) {
 async fn test_client_set_solar_energy(#[future] client_server: (Client, HomeAssistantMockServer)) {
     let (client, server) = client_server.await;
     let energy_today = 1280;
-    let last_reset = chrono::Utc.with_ymd_and_hms(2025, 6, 23, 0, 0, 0).unwrap();
     let mock = server
-        .mock_set_solar_energy((energy_today as f64) / 1000.0, &last_reset)
+        .mock_set_solar_energy((energy_today as f64) / 1000.0)
         .await;
 
-    let result = client.set_solar_energy(energy_today, &last_reset).await;
+    let result = client.set_solar_energy(energy_today).await;
 
     mock.assert_async().await;
     assert!(result.is_ok());

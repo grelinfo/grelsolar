@@ -1,5 +1,4 @@
 //! Mock server for Home Assistant API
-use chrono::{DateTime, TimeZone};
 use httpmock::{Method::POST, Mock, MockServer};
 use reqwest::Url;
 use serde_json::json;
@@ -28,12 +27,7 @@ impl HomeAssistantMockServer {
     }
 
     /// Mock the set state for solar energy with sample request/response.
-    pub async fn mock_set_solar_energy<'a, Tz: TimeZone>(
-        &'a self,
-        energy_kwh: f64,
-        last_reset: &DateTime<Tz>,
-    ) -> Mock<'a> {
-        let last_reset = last_reset.to_rfc3339();
+    pub async fn mock_set_solar_energy<'a>(&'a self, energy_kwh: f64) -> Mock<'a> {
         self.server
             .mock_async(move |when, then| {
                 when.method(POST)
@@ -45,7 +39,6 @@ impl HomeAssistantMockServer {
                         "attributes": {
                             "device_class": "energy",
                             "state_class": "total_increasing",
-                            "last_reset": last_reset,
                             "friendly_name": "Solar Energy",
                             "unit_of_measurement": "kWh"
                         }
@@ -58,7 +51,6 @@ impl HomeAssistantMockServer {
                         "attributes": {
                             "friendly_name": "Solar Energy",
                             "unit_of_measurement": "kWh",
-                            "last_reset": last_reset,
                             "device_class": "energy",
                             "state_class": "total_increasing"
                         },
@@ -88,6 +80,7 @@ impl HomeAssistantMockServer {
                         "attributes": {
                             "unit_of_measurement": "W",
                             "friendly_name": "Solar Power",
+                            "device_class": "power",
                             "state_class": "measurement"
                         }
                     }));
@@ -99,6 +92,7 @@ impl HomeAssistantMockServer {
                         "attributes": {
                             "unit_of_measurement": "W",
                             "state_class": "measurement",
+                            "device_class": "power",
                             "friendly_name": "Solar Power"
                         },
                         "last_changed": "2025-06-23T06:22:32.877327+00:00",

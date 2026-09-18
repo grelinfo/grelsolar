@@ -4,7 +4,6 @@
 use super::Result;
 use super::http_client::HttpClient;
 use super::schemas::StateCreateOrUpdate;
-use chrono::{DateTime, TimeZone};
 use reqwest::Url;
 pub struct Client {
     http: HttpClient,
@@ -18,12 +17,8 @@ impl Client {
     }
 
     /// Set the solar energy produced today in Home Assistant.
-    pub async fn set_solar_energy<Tz: TimeZone>(
-        &self,
-        energy_today: i64,
-        last_reset: &DateTime<Tz>,
-    ) -> Result<()> {
-        let state = Self::create_solar_energy_state(energy_today, last_reset);
+    pub async fn set_solar_energy(&self, energy_today: i64) -> Result<()> {
+        let state = Self::create_solar_energy_state(energy_today);
         self.http.set_state("sensor.solar_energy", &state).await?;
         Ok(())
     }
@@ -50,6 +45,7 @@ impl Client {
                 [
                     ("unit_of_measurement".to_string(), "W".to_string()),
                     ("friendly_name".to_string(), "Solar Power".to_string()),
+                    ("device_class".to_string(), "power".to_string()),
                     ("state_class".to_string(), "measurement".to_string()),
                 ]
                 .into_iter()
@@ -59,10 +55,7 @@ impl Client {
     }
 
     /// Create the state for solar energy produced today.
-    fn create_solar_energy_state<Tz: TimeZone>(
-        energy_today: i64,
-        last_reset: &DateTime<Tz>,
-    ) -> StateCreateOrUpdate {
+    fn create_solar_energy_state(energy_today: i64) -> StateCreateOrUpdate {
         let kwh = energy_today as f64 / 1000.0; // Convert to kWh
         StateCreateOrUpdate {
             state: kwh.to_string(),
@@ -72,7 +65,6 @@ impl Client {
                     ("friendly_name".to_string(), "Solar Energy".to_string()),
                     ("device_class".to_string(), "energy".to_string()),
                     ("state_class".to_string(), "total_increasing".to_string()),
-                    ("last_reset".to_string(), last_reset.to_rfc3339()),
                 ]
                 .into_iter()
                 .collect(),
@@ -117,6 +109,7 @@ mod tests {
                 [
                     ("unit_of_measurement".to_string(), "W".to_string()),
                     ("friendly_name".to_string(), "Solar Power".to_string()),
+                    ("device_class".to_string(), "power".to_string()),
                     ("state_class".to_string(), "measurement".to_string()),
                 ]
                 .into_iter()
@@ -138,10 +131,6 @@ mod tests {
     #[case(123, "0.123")]
     #[case(-123, "-0.123")]
     fn test_create_solar_energy_state(#[case] energy_today: i64, #[case] expected_state: &str) {
-        let last_reset = DateTime::parse_from_rfc3339("2023-10-01T00:00:00+01:00")
-            .unwrap()
-            .with_timezone(&chrono::FixedOffset::east_opt(3600).unwrap());
-
         let expected = StateCreateOrUpdate {
             state: expected_state.to_string(),
             attributes: Some(
@@ -150,17 +139,13 @@ mod tests {
                     ("friendly_name".to_string(), "Solar Energy".to_string()),
                     ("device_class".to_string(), "energy".to_string()),
                     ("state_class".to_string(), "total_increasing".to_string()),
-                    (
-                        "last_reset".to_string(),
-                        "2023-10-01T00:00:00+01:00".to_string(),
-                    ),
                 ]
                 .into_iter()
                 .collect(),
             ),
         };
 
-        let state = Client::create_solar_energy_state(energy_today, &last_reset);
+        let state = Client::create_solar_energy_state(energy_today);
 
         assert_eq!(state, expected);
     }

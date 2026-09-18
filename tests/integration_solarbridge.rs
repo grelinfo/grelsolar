@@ -121,10 +121,9 @@ async fn test_sync_solar_status_no_change() {
 async fn test_sync_solar_energy() {
     let (solarlog_mockserver, homeassistant_mockserver, service) = mock_setup().await;
     let (solarlog_mock, day, expected) = solarlog_mockserver.mock_energy_daily().await;
-    let last_reset = SolarBridgeBackgroundService::day_midnight(&day);
     let energy_kwh = (expected as f64) / 1000.0; // Convert to kWh
     let homeassistant_mock = homeassistant_mockserver
-        .mock_set_solar_energy(energy_kwh, &last_reset)
+        .mock_set_solar_energy(energy_kwh)
         .await;
 
     let result = service.sync_solar_energy(None).await;
@@ -138,10 +137,9 @@ async fn test_sync_solar_energy() {
 async fn test_sync_solar_energy_no_change() {
     let (solarlog_mockserver, homeassistant_mockserver, service) = mock_setup().await;
     let (solarlog_mock, day, expected) = solarlog_mockserver.mock_energy_daily().await;
-    let last_reset = SolarBridgeBackgroundService::day_midnight(&day);
     let energy_kwh = (expected as f64) / 1000.0; // Convert to kWh
     let homeassistant_mock = homeassistant_mockserver
-        .mock_set_solar_energy(energy_kwh, &last_reset)
+        .mock_set_solar_energy(energy_kwh)
         .await;
 
     // Second sync should not change anything
@@ -167,12 +165,11 @@ async fn test_service_run_starts_and_polls() {
         .mock_set_solar_status(expected_status)
         .await;
 
-    let (solarlog_energy_mock, day, expected_energy) =
+    let (solarlog_energy_mock, _day, expected_energy) =
         solarlog_mockserver.mock_energy_daily().await;
-    let last_reset = SolarBridgeBackgroundService::day_midnight(&day);
     let energy_kwh = (expected_energy as f64) / 1000.0;
     let _homeassistant_energy_mock = homeassistant_mockserver
-        .mock_set_solar_energy(energy_kwh, &last_reset)
+        .mock_set_solar_energy(energy_kwh)
         .await;
 
     let cancel_token = CancellationToken::new();
