@@ -74,7 +74,7 @@ async fn test_client_with_server_error(#[future] client_server: (Client, HomeAss
     let result_call_1 = client.set_solar_current_power(1234).await;
     let result_call_2 = client.set_solar_current_power(1234).await;
 
-    assert!(mock.hits_async().await > 2, "should retry on server error");
+    assert!(mock.calls_async().await > 2, "should retry on server error");
     assert!(
         matches!(result_call_1, Err(Error::RequestFailed(_))),
         "request should fail due to server error"

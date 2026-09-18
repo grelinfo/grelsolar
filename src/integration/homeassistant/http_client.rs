@@ -43,7 +43,7 @@ impl HttpClient {
     /// Creates or updates a state in Home Assistant.
     pub async fn set_state(&self, entity_id: &str, state: &StateCreateOrUpdate) -> Result<()> {
         let body = serde_json::to_string(state)?;
-        RetryIf::spawn(
+        RetryIf::start(
             Self::retry_strategy(),
             || async {
                 self.circuit_breaker

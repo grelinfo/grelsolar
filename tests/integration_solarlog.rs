@@ -63,7 +63,7 @@ async fn test_login_with_server_error(#[future] client_server: (Client, Solarlog
     let result_1 = client.login().await;
     let result_2 = client.login().await;
 
-    assert!(mock.hits_async().await > 2, "should retry on server error");
+    assert!(mock.calls_async().await > 2, "should retry on server error");
     assert!(matches!(result_1, Err(Error::RequestFailed(_))));
     assert!(
         matches!(result_2, Err(Error::RequestRejected)),
@@ -93,7 +93,7 @@ async fn test_logout_with_server_error(
 
     let result = client.logout().await;
 
-    assert_eq!(mock.hits_async().await, 1, "should try to logout once");
+    assert_eq!(mock.calls_async().await, 1, "should try to logout once");
     assert!(!result, "logout should fail due to server error");
 }
 
@@ -174,7 +174,7 @@ async fn test_logout_without_login(#[future] client_server: (Client, SolarlogMoc
     let result = client.logout().await;
 
     assert!(!result);
-    assert_eq!(mock.hits_async().await, 0);
+    assert_eq!(mock.calls_async().await, 0);
 }
 
 #[rstest]
@@ -188,7 +188,7 @@ async fn test_client_with_server_error(
     let result_call_1 = client.get_current_power().await;
     let result_call_2 = client.get_current_power().await;
 
-    assert!(mock.hits_async().await > 2, "should retry on server error");
+    assert!(mock.calls_async().await > 2, "should retry on server error");
     assert!(
         matches!(result_call_1, Err(Error::RequestFailed(_))),
         "request should fail due to server error"
@@ -211,7 +211,7 @@ async fn test_query_with_query_impossible(
     let result_call_2 = client.get_current_power().await;
 
     assert_eq!(
-        mock.hits_async().await,
+        mock.calls_async().await,
         2,
         "should not retry on impossible query"
     );
@@ -236,7 +236,10 @@ async fn test_query_with_access_denied(
     let result_call_1 = client.get_current_power().await;
     let result_call_2 = client.get_current_power().await;
 
-    assert!(mock.hits_async().await > 2, "should retry on access denied");
+    assert!(
+        mock.calls_async().await > 2,
+        "should retry on access denied"
+    );
     assert!(
         matches!(result_call_1, Err(Error::AccessDenied)),
         "request should fail due to access denied"

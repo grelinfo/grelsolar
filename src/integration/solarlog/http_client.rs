@@ -50,7 +50,7 @@ impl HttpClient {
     /// Login to SolarLog device.
     /// If `force` is true, it will always login even if already logged in.
     pub async fn login(&self, force: bool) -> Result<()> {
-        RetryIf::spawn(
+        RetryIf::start(
             Self::retry_strategy(),
             || async {
                 self.circuit_breaker
@@ -91,7 +91,7 @@ impl HttpClient {
 
     /// Query the SolarLog device.
     pub async fn query(&self, query: &str) -> Result<Value> {
-        RetryIf::spawn(
+        RetryIf::start(
             Self::retry_strategy(),
             || async {
                 self.circuit_breaker

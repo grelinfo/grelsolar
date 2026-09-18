@@ -74,7 +74,7 @@ async fn test_sync_solar_power_no_change() {
     let result = service.sync_solar_power(Some(expected)).await;
 
     solarlog_mock.assert_async().await;
-    assert_eq!(homeassistant_mock.hits_async().await, 0);
+    assert_eq!(homeassistant_mock.calls_async().await, 0);
     assert_eq!(result.unwrap(), Some(expected));
 }
 
@@ -110,7 +110,7 @@ async fn test_sync_solar_status_no_change() {
     let result = service.sync_solar_status(Some(&inverter_status)).await;
 
     solarlog_mock.assert_async().await;
-    assert_eq!(homeassistant_mock.hits_async().await, 0);
+    assert_eq!(homeassistant_mock.calls_async().await, 0);
     assert_eq!(
         result.unwrap().map(|s| s.to_string()),
         Some(expected.to_string())
@@ -148,7 +148,7 @@ async fn test_sync_solar_energy_no_change() {
     let result = service.sync_solar_energy(Some((day, expected))).await;
 
     solarlog_mock.assert_async().await;
-    assert_eq!(homeassistant_mock.hits_async().await, 0);
+    assert_eq!(homeassistant_mock.calls_async().await, 0);
     assert_eq!(result.unwrap(), Some((day, expected)));
 }
 
@@ -192,7 +192,7 @@ async fn test_service_run_starts_and_polls() {
     drop(service_handle);
 
     // Assert that the mocks were hit at least once
-    assert!(solarlog_energy_mock.hits_async().await > 0);
-    assert!(solarlog_power_mock.hits_async().await > 0);
-    assert!(solarlog_status_mock.hits_async().await > 0);
+    assert!(solarlog_energy_mock.calls_async().await > 0);
+    assert!(solarlog_power_mock.calls_async().await > 0);
+    assert!(solarlog_status_mock.calls_async().await > 0);
 }
