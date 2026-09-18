@@ -164,11 +164,11 @@ impl HttpClient {
     /// Avoid clearing the wrong token when switching from read to write lock.
     async fn clear_token(&self, token: &str) {
         let mut token_write = self.token.write().await;
-        if let Some(ref current_token) = *token_write {
-            if current_token == token {
-                *token_write = None;
-                log::debug!("Token cleared");
-            }
+        if let Some(ref current_token) = *token_write
+            && current_token == token
+        {
+            *token_write = None;
+            log::debug!("Token cleared");
         }
     }
 
