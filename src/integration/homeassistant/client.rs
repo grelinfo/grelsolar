@@ -5,6 +5,7 @@ use super::Result;
 use super::http_client::HttpClient;
 use super::schemas::StateCreateOrUpdate;
 use reqwest::Url;
+use std::time::Duration;
 
 /// State of a sensor whose source cannot be reached.
 const UNAVAILABLE: &str = "unavailable";
@@ -15,8 +16,9 @@ pub struct Client {
 
 impl Client {
     /// Creates a new instance of `Client`.
-    pub fn new(url: Url, token: String) -> Self {
-        let http = HttpClient::new(url, token);
+    /// `timeout` applies to each HTTP request.
+    pub fn new(url: Url, token: String, timeout: Duration) -> Self {
+        let http = HttpClient::new(url, token, timeout);
         Client { http }
     }
 
@@ -125,7 +127,7 @@ mod tests {
     async fn test_new() {
         let url = Url::parse("http://localhost:8123").unwrap();
         let token = String::from("test_token");
-        Client::new(url, token);
+        Client::new(url, token, Duration::from_millis(500));
     }
 
     #[rstest]

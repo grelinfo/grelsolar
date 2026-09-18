@@ -8,6 +8,7 @@ use serde_json::Value;
 use serde_json::Value::Null;
 use serde_json::json;
 use std::str::FromStr;
+use std::time::Duration;
 use strum_macros::Display;
 use strum_macros::EnumString;
 
@@ -111,8 +112,9 @@ impl InverterStatus {
 
 impl Client {
     /// Creates a new instance of `Client`.
-    pub fn new(url: Url, password: String) -> Self {
-        let inner = HttpClient::new(url, password);
+    /// `timeout` applies to each HTTP request.
+    pub fn new(url: Url, password: String, timeout: Duration) -> Self {
+        let inner = HttpClient::new(url, password, timeout);
         Client { http: inner }
     }
 
@@ -368,7 +370,7 @@ mod tests {
     fn test_client_new() {
         let url = Url::parse("http://localhost:8080").unwrap();
         let password = String::from("test_password");
-        Client::new(url, password);
+        Client::new(url, password, Duration::from_millis(500));
     }
 
     #[test]

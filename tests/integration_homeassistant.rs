@@ -16,7 +16,7 @@ async fn client_server() -> (Client, HomeAssistantMockServer) {
     let server = HomeAssistantMockServer::start().await;
     let url = server.url();
     let token = server.token().to_string();
-    let client = Client::new(url, token);
+    let client = Client::new(url, token, std::time::Duration::from_millis(500));
     (client, server)
 }
 

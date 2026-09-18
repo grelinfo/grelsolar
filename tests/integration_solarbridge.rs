@@ -22,11 +22,13 @@ async fn mock_setup() -> (
     let solarlog_client = Arc::new(SolarLogClient::new(
         solarlog_mockserver.url(),
         solarlog_mockserver.password(),
+        Duration::from_millis(500),
     ));
 
     let homeassistant_client = Arc::new(HomeAssistantClient::new(
         homeassistant_mockserver.url(),
         homeassistant_mockserver.token(),
+        Duration::from_millis(500),
     ));
 
     solarlog_mockserver.mock_login_ok().await;

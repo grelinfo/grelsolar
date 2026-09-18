@@ -22,11 +22,13 @@ impl Container {
         let solarlog = Arc::new(solarlog::Client::new(
             config.solarlog_url.clone(),
             config.solarlog_password.clone(),
+            config.http_timeout.into(),
         ));
 
         let homeassistant = Arc::new(homeassistant::Client::new(
             config.homeassistant_url.clone(),
             config.homeassistant_token.clone(),
+            config.http_timeout.into(),
         ));
 
         let solar_service = Arc::new(services::SolarBridgeBackgroundService::new(
@@ -85,6 +87,7 @@ mod tests {
             sync_power_interval: Duration::from(std::time::Duration::from_secs(10)),
             sync_energy_interval: Duration::from(std::time::Duration::from_secs(2)),
             sync_status_interval: Duration::from(std::time::Duration::from_secs(3)),
+            http_timeout: Duration::from(std::time::Duration::from_millis(500)),
         }
     }
 

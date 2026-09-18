@@ -38,6 +38,8 @@ Set the following environment variables (for both native and Docker usage):
 | `SYNC_POWER_INTERVAL`     | Power sync interval (default: 5s)  | `10s`                          |
 | `SYNC_ENERGY_INTERVAL`    | Energy sync interval (default: 60s)| `120s`                         |
 | `SYNC_STATUS_INTERVAL`    | Status sync interval (default: 60s)| `60s`                          |
+| `HTTP_TIMEOUT`            | Timeout of each HTTP request (default: 500ms) | `2s`                |
+| `APP_LOG`                 | Log level (default: info)          | `debug`                        |
 
 ### Running
 

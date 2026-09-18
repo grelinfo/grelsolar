@@ -4,6 +4,8 @@ use rstest::{fixture, rstest};
 
 use crate::mockserver_solarlog::SolarlogMockServer;
 
+use std::time::Duration;
+
 mod mockserver_solarlog;
 
 #[fixture]
@@ -11,7 +13,11 @@ mod mockserver_solarlog;
 async fn client_server() -> (Client, SolarlogMockServer) {
     let _ = env_logger::builder().is_test(true).try_init();
     let server = SolarlogMockServer::start().await;
-    let client = Client::new(server.url(), server.password().to_string());
+    let client = Client::new(
+        server.url(),
+        server.password().to_string(),
+        Duration::from_millis(500),
+    );
     (client, server)
 }
 
@@ -20,7 +26,11 @@ async fn client_server() -> (Client, SolarlogMockServer) {
 async fn client_server_logged() -> (Client, SolarlogMockServer) {
     let _ = env_logger::builder().is_test(true).try_init();
     let server = SolarlogMockServer::start().await;
-    let client = Client::new(server.url(), server.password().to_string());
+    let client = Client::new(
+        server.url(),
+        server.password().to_string(),
+        Duration::from_millis(500),
+    );
 
     server.mock_login_ok().await;
     client.login().await.expect("login failed in fixture");

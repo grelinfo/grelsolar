@@ -24,6 +24,8 @@ pub struct Config {
     pub sync_energy_interval: Duration,
     #[envconfig(from = "SYNC_STATUS_INTERVAL", default = "60s")]
     pub sync_status_interval: Duration,
+    #[envconfig(from = "HTTP_TIMEOUT", default = "500ms")]
+    pub http_timeout: Duration,
 }
 
 /// Configure the logger from `APP_LOG` (default: `info`) and `APP_LOG_STYLE`.
@@ -50,6 +52,7 @@ mod tests {
                 ("SYNC_POWER_INTERVAL", Some("10s")),
                 ("SYNC_ENERGY_INTERVAL", Some("20s")),
                 ("SYNC_STATUS_INTERVAL", Some("30s")),
+                ("HTTP_TIMEOUT", Some("2s")),
             ],
             || {
                 let config = Config::init_from_env().unwrap();
@@ -74,6 +77,10 @@ mod tests {
                 assert_eq!(
                     config.sync_status_interval,
                     std::time::Duration::from_secs(30).into()
+                );
+                assert_eq!(
+                    config.http_timeout,
+                    std::time::Duration::from_secs(2).into()
                 );
             },
         );
