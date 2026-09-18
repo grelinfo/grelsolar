@@ -66,7 +66,7 @@ export CARGO_TERM_COLOR := "always"
 
 # Run Docker container
 @docker-run:
-    docker run --rm -it -p 8080:8080 --env-file .env grelsolar:0.0.0
+    docker run --rm -it --env-file .env grelsolar:0.0.0
 
 # Full CI checks (comprehensive)
 @ci:
