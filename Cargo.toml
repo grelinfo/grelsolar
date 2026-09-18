@@ -35,6 +35,7 @@ http = "1.5.0"
 httpmock = "0.8.3"
 rstest = "0.27.0"
 temp-env = { version = "0.3.6", features = ["async_closure"] }
+tokio = { version = "1.53.1", features = ["test-util"] }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage,coverage_nightly)'] }

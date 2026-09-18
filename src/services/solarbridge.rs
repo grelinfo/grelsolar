@@ -3,10 +3,14 @@
 
 use chrono::{DateTime, NaiveDate};
 use std::sync::Arc;
-use tokio::time::{Duration, interval};
+use tokio::time::{Duration, Instant, interval};
 use tokio_util::sync::CancellationToken;
 
 use crate::integration::{homeassistant, solarlog};
+
+/// Maximum time before an unchanged value is sent again to Home Assistant.
+/// Home Assistant does not keep states set through its API across restarts.
+const STATE_REFRESH_INTERVAL: Duration = Duration::from_secs(300);
 
 pub struct SolarBridgeBackgroundService {
     solarlog: Arc<solarlog::Client>,
@@ -49,6 +53,7 @@ impl SolarBridgeBackgroundService {
     /// * `period` - The interval at which to poll SolarLog for current power data.
     async fn sync_solar_power_task(&self, period: Duration, token: CancellationToken) {
         let mut last_power = None;
+        let mut refreshed_at = Instant::now();
         let mut interval = interval(period);
 
         loop {
@@ -59,6 +64,7 @@ impl SolarBridgeBackgroundService {
                     return;
                 }
             }
+            expire(&mut last_power, &mut refreshed_at);
             match self.sync_solar_power(last_power).await {
                 Ok(power) => last_power = power,
                 Err(e) => log::error!("Error syncing solar power: {e}"),
@@ -72,6 +78,7 @@ impl SolarBridgeBackgroundService {
     /// * `period` - The interval at which to poll SolarLog for inverter status data.
     async fn sync_solar_energy_task(&self, period: Duration, token: CancellationToken) {
         let mut last_value: Option<(NaiveDate, i64)> = None;
+        let mut refreshed_at = Instant::now();
         let mut interval = interval(period);
 
         loop {
@@ -82,6 +89,7 @@ impl SolarBridgeBackgroundService {
                     return;
                 }
             }
+            expire(&mut last_value, &mut refreshed_at);
             match self.sync_solar_energy(last_value).await {
                 Ok(energy) => last_value = energy,
                 Err(e) => log::error!("Error syncing solar energy: {e}"),
@@ -95,6 +103,7 @@ impl SolarBridgeBackgroundService {
     /// * `period` - The interval at which to poll SolarLog for inverter status data.
     async fn sync_solar_status_task(&self, period: Duration, token: CancellationToken) {
         let mut last_status: Option<solarlog::InverterStatus> = None;
+        let mut refreshed_at = Instant::now();
         let mut interval = interval(period);
         loop {
             tokio::select! {
@@ -104,6 +113,7 @@ impl SolarBridgeBackgroundService {
                     return;
                 }
             }
+            expire(&mut last_status, &mut refreshed_at);
             match self.sync_solar_status(last_status.as_ref()).await {
                 Ok(status) => last_status = status,
                 Err(e) => log::error!("Error syncing solar status: {e}"),
@@ -168,9 +178,18 @@ impl SolarBridgeBackgroundService {
     }
 }
 
+/// Forget the last synced value once `STATE_REFRESH_INTERVAL` has elapsed,
+/// so that the next sync sends it again even if it did not change.
+fn expire<T>(last: &mut Option<T>, refreshed_at: &mut Instant) {
+    if refreshed_at.elapsed() >= STATE_REFRESH_INTERVAL {
+        *last = None;
+        *refreshed_at = Instant::now();
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::SolarBridgeBackgroundService;
+    use super::{Instant, STATE_REFRESH_INTERVAL, SolarBridgeBackgroundService, expire};
     use chrono::{Datelike, NaiveDate, Timelike};
 
     #[test]
@@ -185,5 +204,28 @@ mod tests {
         assert_eq!(midnight.minute(), 0);
         assert_eq!(midnight.second(), 0);
         assert_eq!(midnight.nanosecond(), 0);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_expire_keeps_value_before_refresh_interval() {
+        let mut last = Some(42);
+        let mut refreshed_at = Instant::now();
+
+        tokio::time::advance(STATE_REFRESH_INTERVAL / 2).await;
+        expire(&mut last, &mut refreshed_at);
+
+        assert_eq!(last, Some(42));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_expire_clears_value_after_refresh_interval() {
+        let mut last = Some(42);
+        let mut refreshed_at = Instant::now();
+
+        tokio::time::advance(STATE_REFRESH_INTERVAL).await;
+        expire(&mut last, &mut refreshed_at);
+
+        assert_eq!(last, None);
+        assert_eq!(refreshed_at, Instant::now());
     }
 }
