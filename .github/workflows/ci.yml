@@ -13,7 +13,7 @@ jobs:
       BUILD_VERSION: ${{ steps.build_version.outputs.BUILD_VERSION }}
       DOCKER_VERSION: ${{ steps.docker_version.outputs.DOCKER_VERSION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
@@ -22,7 +22,7 @@ jobs:
           cache-on-failure: true
           shared-key: ${{ github.ref_name }}
       - uses: taiki-e/install-action@just
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v10
         with:
           enable-cache: true
           cache-suffix: ${{ github.ref_name }}
@@ -38,7 +38,7 @@ jobs:
       BUILD_VERSION: ${{ needs.version.outputs.BUILD_VERSION }}
       DOCKER_VERSION: ${{ needs.version.outputs.DOCKER_VERSION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -72,7 +72,7 @@ jobs:
           files: junit.xml
           token: ${{ secrets.CODECOV_TOKEN }}
       - if: ${{ !cancelled() && github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main') }}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: true
           files: lcov.info
@@ -87,7 +87,7 @@ jobs:
       BUILD_VERSION: ${{ needs.version.outputs.BUILD_VERSION }}
       DOCKER_VERSION: ${{ needs.version.outputs.DOCKER_VERSION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -111,13 +111,13 @@ jobs:
       BUILD_VERSION: ${{ needs.version.outputs.BUILD_VERSION }}
       DOCKER_VERSION: ${{ needs.version.outputs.DOCKER_VERSION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-edit
       - run: cargo set-version ${{ env.BUILD_VERSION }}
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
         with:
           context: .
           push: false
@@ -132,25 +132,25 @@ jobs:
       BUILD_VERSION: ${{ needs.version.outputs.BUILD_VERSION }}
       DOCKER_VERSION: ${{ needs.version.outputs.DOCKER_VERSION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-edit
       - run: cargo set-version ${{ env.BUILD_VERSION }}
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: grelinfo/grelsolar
           tags: |
             type=semver,pattern={{version}},value=${{ env.DOCKER_VERSION }}
             type=semver,pattern={{major}}.{{minor}},value=${{ env.DOCKER_VERSION }}
             type=raw,value=latest,enable=${{ !contains(env.DOCKER_VERSION, '-') }}
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           push: true
