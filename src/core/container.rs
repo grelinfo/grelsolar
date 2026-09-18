@@ -78,8 +78,6 @@ mod tests {
 
     fn config() -> Config {
         Config {
-            app_log: "info".into(),
-            app_log_style: "auto".into(),
             solarlog_url: reqwest::Url::parse("http://localhost:1234").unwrap(),
             solarlog_password: "pw".into(),
             homeassistant_url: reqwest::Url::parse("http://localhost:2222").unwrap(),
@@ -97,7 +95,7 @@ mod tests {
 
         container.shutdown().await;
 
-        assert_eq!(container.config().app_log, "info");
+        assert_eq!(container.config().solarlog_password, "pw");
         assert!(Arc::ptr_eq(
             &container.solarlog_client(),
             &container.solarlog_client()

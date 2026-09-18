@@ -81,7 +81,7 @@ impl HttpClient {
         Ok(())
     }
 
-    /// Creates a circuit breaker with a failure policy that allows up to 3 consecutive failures and will retry after 60 seconds.
+    /// Creates a circuit breaker with a failure policy that opens after 5 consecutive failures and will retry after 60 seconds.
     fn circuit_breaker() -> failsafe::StateMachine<ConsecutiveFailures<Constant>, ()> {
         let backoff = backoff::constant(Duration::from_secs(60));
         let policy = failure_policy::consecutive_failures(5, backoff);

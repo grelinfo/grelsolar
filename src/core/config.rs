@@ -10,12 +10,6 @@ pub const APP_NAME: &str = env!("CARGO_PKG_NAME");
 
 #[derive(Envconfig)]
 pub struct Config {
-    #[allow(dead_code)]
-    #[envconfig(from = "APP_LOG", default = "error")]
-    pub app_log: String,
-    #[allow(dead_code)]
-    #[envconfig(from = "APP_LOG_STYLE", default = "always")]
-    pub app_log_style: String,
     #[envconfig(from = "SOLARLOG_URL")]
     pub solarlog_url: Url,
     #[envconfig(from = "SOLARLOG_PASSWORD")]
@@ -32,6 +26,7 @@ pub struct Config {
     pub sync_status_interval: Duration,
 }
 
+/// Configure the logger from `APP_LOG` (default: `info`) and `APP_LOG_STYLE`.
 pub fn configure_logger() {
     let env = env_logger::Env::default()
         .filter_or("APP_LOG", "info")
@@ -48,8 +43,6 @@ mod tests {
     fn test_config_from_env() {
         with_vars(
             [
-                ("APP_LOG", Some("debug")),
-                ("APP_LOG_STYLE", Some("auto")),
                 ("SOLARLOG_URL", Some("http://localhost:8080")),
                 ("SOLARLOG_PASSWORD", Some("test_password")),
                 ("HOMEASSISTANT_URL", Some("http://localhost:8001")),
@@ -60,8 +53,6 @@ mod tests {
             ],
             || {
                 let config = Config::init_from_env().unwrap();
-                assert_eq!(config.app_log, "debug");
-                assert_eq!(config.app_log_style, "auto");
                 assert_eq!(
                     config.solarlog_url,
                     Url::parse("http://localhost:8080").unwrap()

@@ -28,7 +28,6 @@ impl HttpClient {
             .pool_idle_timeout(Duration::from_secs(30)) // 30 seconds idle timeout
             .pool_max_idle_per_host(2) // Maximum 2 idle connections per host
             .timeout(Duration::from_millis(500)) // 0.5 seconds timeout
-            .timeout(Duration::from_millis(500)) // 0.5 seconds timeout
             .build()
             .expect("Failed to create HTTP client");
         HttpClient {
@@ -252,7 +251,7 @@ impl HttpClient {
         Ok(text)
     }
 
-    /// Creates a circuit breaker with a failure policy that allows up to 3 consecutive failures and will retry after 60 seconds.
+    /// Creates a circuit breaker with a failure policy that opens after 5 consecutive failures and will retry after 60 seconds.
     fn circuit_breaker() -> failsafe::StateMachine<ConsecutiveFailures<Constant>, ()> {
         let backoff = backoff::constant(Duration::from_secs(60));
         let policy = failure_policy::consecutive_failures(5, backoff);
