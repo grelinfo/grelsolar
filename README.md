@@ -61,16 +61,22 @@ docker run --rm \
 
 ##### Example: Docker Compose
 
+For a setup that runs unattended, pin a version and rotate the logs:
+
 ```yaml
 services:
   grelsolar:
-    image: grelinfo/grelsolar:latest
-    restart: unless-stopped
+    image: grelinfo/grelsolar:0.3 # Receives 0.3.x fixes only, never breaking changes
+    restart: unless-stopped # Restarts the container if the application crashes
     environment:
       SOLARLOG_URL: "http://192.168.1.10"
       SOLARLOG_PASSWORD: "secret"
       HOMEASSISTANT_URL: "http://192.168.1.20:8123"
       HOMEASSISTANT_TOKEN: "your_token"
+    logging:
+      options:
+        max-size: "10m" # Rotate the log file at 10 MB
+        max-file: "3" # Keep 3 files: at most 30 MB of logs
 ```
 
 ## Changelog
