@@ -43,3 +43,8 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage,coverage_nightly)
 default.extend-ignore-re = [
     "SUCESS - You are now logged out.",
 ]
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
