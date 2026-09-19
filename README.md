@@ -105,7 +105,7 @@ grelsolar is designed to run for long periods without attention:
 | Request fails                           | Retried up to 3 times with a short, randomized backoff                    |
 | Device keeps failing                    | After 5 failures in a row, requests stop for 60 s to let it recover       |
 | SolarLog session expires                | Logs in again automatically                                               |
-| SolarLog unreachable for 60 s           | Sensors are set to `unavailable`, so no stale value is shown as live      |
+| Sync keeps failing for 60 s             | At its next sync, the sensor is set to `unavailable`, so no stale value is shown as live (up to about 2 min with a 60 s sync interval) |
 | Sync recovers                           | Sensors get their current value back immediately                          |
 | Failure lasts                           | Logged once when it starts, once an hour while it lasts, once when it ends |
 | Application crashes                     | The process exits with an error, so Docker restarts it (`restart: unless-stopped`) |
