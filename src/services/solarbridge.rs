@@ -216,7 +216,12 @@ impl<T> SyncState<T> {
 
     /// Last synced value, forgotten every `STATE_REFRESH_INTERVAL` so that
     /// the next sync sends it again even if it did not change.
+    /// While failing, there is none: the value is always sent, so that a
+    /// recovery is only reported once Home Assistant really accepted it.
     fn last(&mut self) -> Option<&T> {
+        if self.failing_since.is_some() {
+            return None;
+        }
         if self.refreshed_at.elapsed() >= STATE_REFRESH_INTERVAL {
             self.last = None;
             self.refreshed_at = Instant::now();
@@ -310,6 +315,16 @@ mod tests {
         state.succeeded(Some(42));
 
         tokio::time::advance(STATE_REFRESH_INTERVAL).await;
+
+        assert_eq!(state.last(), None);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_last_is_none_while_failing() {
+        let mut state = SyncState::new("test");
+        state.succeeded(Some(42));
+
+        state.failed(&error());
 
         assert_eq!(state.last(), None);
     }
