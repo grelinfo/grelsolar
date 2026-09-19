@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-19
+
 ### 🚨 Breaking Changes
 - Docker: the binary moved to `/grelsolar` and is now the image `ENTRYPOINT`
   (was `./grelsolar` as `CMD`). Update any setup that overrides the command.
@@ -30,7 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   static binary on distroless, single-threaded runtime and optimized release profile.
 - arm64 images are cross-compiled instead of emulated.
 - Failures are logged when they start, hourly while they last and when they end,
-  instead of on every attempt.
+  instead of on every attempt. A recovery is only reported once Home Assistant
+  accepted the value.
 - Missed sync ticks are skipped instead of run in a burst.
 
 ### 🔒 Security
